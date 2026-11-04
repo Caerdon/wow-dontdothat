@@ -16,7 +16,7 @@ local SHARED_CORE = {
 }
 -- Handy now and then for any spec. The talent ones count only while the talent is active.
 local SHARED_SITUATIONAL = {
-  "Dispel Magic", "Cure Disease", "Abolish Disease", "Psychic Scream", "Greater Heal", "Binding Heal",
+  "Dispel Magic", "Cure Disease", "Abolish Disease", "Psychic Scream", "Greater Heal", 
   "Prayer of Healing", "Holy Nova", "Power Infusion", "Penance", "Mind Flay", "Vampiric Embrace",
   "Devouring Plague", "Starshards", "Desperate Prayer", "Touch of Weakness", "Hex of Weakness",
   "Chastise", "Levitate",

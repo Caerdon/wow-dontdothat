@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2
+
+- Spell data refreshed for WoW Forever build 1.60.1.70790: new Rogue Death Mark and Shank, Shaman Totemic Projection is now Totemic Call, and Priest Binding Heal and Shaman Lava Burst are gone.
+
 ## 0.10.1
 
 - Spell data refreshed for WoW Forever build 1.60.1.70755: new Druid Ferocious Bite, Lacerate and Primal Bite ranks, renamed Mage and Paladin talents, and the removed Paladin Salvation and Blessing of Light spells dropped. Trainer prices updated.
