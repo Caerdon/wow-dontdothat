@@ -111,7 +111,7 @@ ns.Rules.Load({
 
   -- Considered and deliberately left at keep: passives, effects, racial and Forever-only spells whose use is not yet known.
   reviewed = {
-    "Between the Eyes", "Blade Dance", "Envenom", "Ghostly Strike", "Main Gauche", "Poisoned Knife",
+    "Between the Eyes", "Blade Dance", "Envenom", "Ghostly Strike", "Main Gauche", "Poised", "Poisoned Knife",
     "Poisons", "Quick Draw", "Redirect", "Rogue Passive (DND)", "Saber Slash", "Shadowstrike", "Shiv",
     "Shuriken Toss", "Venom",
   },

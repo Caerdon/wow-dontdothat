@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- Spell data refreshed for WoW Forever build 1.60.1.70755: new Druid Ferocious Bite, Lacerate and Primal Bite ranks, renamed Mage and Paladin talents, and the removed Paladin Salvation and Blessing of Light spells dropped. Trainer prices updated.
+
 ## 0.10.0
 
 - Works on game clients in any language, recognising spells, talents, trainers, riding and grimoires by ID, and the addon's text can now be translated.

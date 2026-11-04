@@ -42,8 +42,8 @@ test("paladin: the mounts and Plate Mail are always kept", function()
 end)
 
 test("paladin: group, raid and endgame spells are deferred with a plain reason", function()
-  for _, n in ipairs({ "Blessing of Sacrifice", "Blessing of Light", "Blessing of Salvation", "Salvation",
-      "Mass Salvation", "Concentration Aura", "Fire Resistance Aura", "Frost Resistance Aura",
+  for _, n in ipairs({ "Blessing of Sacrifice", "Blessing of Light", "Blessing of Salvation",
+      "Concentration Aura", "Fire Resistance Aura", "Frost Resistance Aura",
       "Shadow Resistance Aura", "Greater Blessing of Might", "Greater Blessing of Salvation" }) do
     local v = eval(n, { "RET" })
     eq(v.tier, "defer", n)
