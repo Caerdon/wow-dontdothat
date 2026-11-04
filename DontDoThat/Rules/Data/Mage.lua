@@ -43,7 +43,7 @@ ns.Rules.Load({
     },
     FROST = {
       name = L["Frost"], tree = 3, -- TalentTab order verified from the game tables
-      rotation = { needsReview = true, core = with(SHARED_CORE, { "Frostbolt", "Cone of Cold", "Blizzard", "Ice Barrier", "Frostfire Bolt", "Ice Block" }), situational = with(SHARED_SITUATIONAL, { "Frost Blast", "Ice Lance" }) },
+      rotation = { needsReview = true, core = with(SHARED_CORE, { "Frostbolt", "Cone of Cold", "Blizzard", "Ice Barrier", "Frostfire Bolt", "Ice Block" }), situational = with(SHARED_SITUATIONAL, { "Ice Lance" }) },
     },
   },
 
@@ -101,9 +101,9 @@ ns.Rules.Load({
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Arcane Resilience", "Arcane Subtlety", "Blast Wave", "Burning Soul", "Cold Snap", "Combustion",
-    "Critical Mass", "Elemental Precision", "Fire Power", "Flame Throwing", "Frost Channeling",
+    "Critical Mass", "Precision", "Fire Power", "Flame Throwing", "Frost Channeling",
     "Frost Warding", "Frostbite", "Ice Barrier", "Ice Block", "Ice Shards", "Impact",
-    "Improved Blizzard", "Improved Cone of Cold", "Improved Fire Blast", "Improved Fireball",
+    "Improved Blizzard", "Improved Cone of Cold", "Improved Fire Blast", "Accelerant",
     "Improved Flamestrike", "Improved Frost Nova", "Improved Frostbolt", "Improved Scorch",
     "Magic Absorption", "Master of Elements", "Permafrost", "Piercing Ice", "Pyroblast", "Shatter",
     "Winter's Chill",
@@ -113,12 +113,12 @@ ns.Rules.Load({
   reviewed = {
     "Arcane Barrage", "Arcane Resilience", "Arcane Subtlety", "Arcane Surge", "Balefire Bolt",
     "Burning Soul", "Chilled", "Cold Snap", "Comprehend Scroll", "Critical Mass", "Detect Magic",
-    "Elemental Precision", "Expanded Intellect", "Fire Power", "Fire Vulnerability", "Flame Throwing",
-    "Frost Channeling", "Frost Warding", "Frostbite", "Frozen Orb", "Ice Shards", "Icy Veins",
-    "Impact", "Improved Blizzard", "Improved Cone of Cold", "Improved Fire Blast", "Improved Fireball",
-    "Improved Flamestrike", "Improved Frost Nova", "Improved Frostbolt", "Improved Scorch",
-    "Living Bomb", "Living Flame", "Magic Absorption", "Mass Regeneration", "Master of Elements",
-    "Permafrost", "Piercing Ice", "Regeneration", "Rewind Time", "Shatter", "Spellfrost Bolt", "Study",
-    "Winter's Chill",
+    "Precision", "Expanded Intellect", "Fire Power", "Fire Vulnerability", "Flame Throwing",
+    "Frost Channeling", "Frost Warding", "Frostbite", "Frozen Orb", "Ice Shards",
+    "Icy Veins", "Impact", "Improved Blizzard", "Improved Cone of Cold", "Improved Fire Blast",
+    "Accelerant", "Improved Flamestrike", "Improved Frost Nova", "Improved Frostbolt",
+    "Improved Scorch", "Living Bomb", "Living Flame", "Magic Absorption", "Mass Regeneration",
+    "Master of Elements", "Permafrost", "Piercing Ice", "Regeneration", "Rewind Time", "Shatter",
+    "Spellfrost Bolt", "Study", "Winter's Chill",
   },
 })

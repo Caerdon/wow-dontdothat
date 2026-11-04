@@ -65,8 +65,6 @@ ns.Rules.Load({
     ["Blessing of Sacrifice"] = L["Takes damage meant for a party member. Only useful in groups."],
     ["Blessing of Light"] = L["Boosts healing on one party member. Only useful in groups."],
     ["Blessing of Salvation"] = L["Lowers a party member's threat. Not needed solo."],
-    ["Salvation"] = L["Lowers a party member's threat. Not needed solo."],
-    ["Mass Salvation"] = L["Lowers threat for a whole group. Not needed while leveling."],
     ["Concentration Aura"] = L["Keeps group casters from being interrupted. Not needed solo."],
     ["Divine Intervention"] = L["Sacrifices you to save a group member."],
     ["Seal of Justice"] = L["Mostly useful in PvP."],
@@ -94,7 +92,7 @@ ns.Rules.Load({
 
     ["Blessing of Sacrifice"] = { "RaidGroup" },
     ["Blessing of Light"] = { "RaidGroup" }, ["Blessing of Salvation"] = { "RaidGroup" },
-    ["Salvation"] = { "RaidGroup" }, ["Mass Salvation"] = { "RaidGroup" },
+   
     ["Concentration Aura"] = { "RaidGroup" },
     ["Righteous Fury"] = { "RaidGroup" }, -- core for Protection, so only others see this
     ["Fire Resistance Aura"] = { "RaidGroup" }, ["Frost Resistance Aura"] = { "RaidGroup" },
@@ -126,11 +124,11 @@ ns.Rules.Load({
     "Judgement of the Crusader", "Judgement of Fury", "Judgement of Martyrdom",
     "Enhanced Blessings", "Holy Power", "Unyielding Faith", "Lasting Judgement", "Improved Judgement",
     "Pursuit of Justice", "Eye for an Eye", "Vindication", "Precision", "Improved Concentration Aura",
-    "Improved Seal of Fury", "Swift Judgement", "Righteous Judgement", "Twist of Light", "Exorcist", "Anticipation",
+    "Improved Seal of Fury", "Swift Judgement", "Righteous Judgement", "Unsealed Wrath", "Exorcist", "Anticipation",
     "Avenging Wrath", "Divine Light", "Divine Sacrifice", "Divine Storm", "Horn of Lordaeron",
     "Inspiration Exemplar", "Sacred Shield", "Seal of Martyrdom",
     "Avenger's Shield", "Beacon of Light", "Crusader Strike", "Divine Steed", "Hand of Reckoning", "Righteous Vengeance",
-    "Journeyman Riding", "Revoke",
+    "Journeyman Riding",
   },
 
   -- The trainer's price is not in the game tables and the Paladin level 40 mount is a class perk: the

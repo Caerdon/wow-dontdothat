@@ -89,9 +89,9 @@ ns.Rules.Load({
   -- Considered and deliberately left at keep: passives, effects, racial and Forever-only spells whose use is not yet known.
   reviewed = {
     "Abolish Poison Effect", "Aquatic Form (Passive)", "Barkskin Effect (DND)", "Bear Form (Passive)",
-    "Bear Form (Passive2)", "Cat Form (Passive)", "Deeper Wilds", "Dire Bear Form (Passive)",
-    "Efflorescence", "Enhanced Restoration", "Feline Grace", "Feral Combat", "Gift of Nature",
-    "Leader of the Pack", "Living Seed", "Moonkin Aura", "Moonkin Form (Passive)", "Pounce Bleed",
+    "Bear Form (Passive2)", "Cat Form (Passive)", "Deeper Wilds", "Dire Bear Form (Passive)", "Efflorescence",
+    "Enhanced Restoration", "Feline Grace", "Feral Combat", "Gift of Nature", "Leader of the Pack",
+    "Living Seed", "Moonkin Aura", "Moonkin Form (Passive)", "Poised", "Pounce Bleed",
     "S03 - Tuning and Overrides Passive - Druid", "Shifting Power", "Tranquil Spirit",
   },
 })

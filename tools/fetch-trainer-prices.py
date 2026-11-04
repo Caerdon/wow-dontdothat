@@ -4,7 +4,8 @@
 Source: Wowhead's Classic spell lists (https://www.wowhead.com/classic/spells/abilities/<class>), whose rows carry
 a "trainingcost". The game's data files do not hold trainer prices. Wowhead's prices matched every one of the
 106 Hunter prices seen at a real trainer, so they stand in for the other classes until a trainer is exported.
-Only spells in Data/SpellData.lua (by ID, or an alternate ID) are written.
+Class spells the list leaves unpriced are looked up on their own Wowhead spell page, whose rank list carries
+a "trainingcost" per rank. Only spells in Data/SpellData.lua (by ID, or an alternate ID) are written.
 
 Usage (from the repo root):
     python3 tools/fetch-trainer-prices.py [--cache tools/.cache] [--out DontDoThat/Data/TrainerPrices.lua]
@@ -15,6 +16,7 @@ import argparse
 import json
 import os
 import re
+import time
 import urllib.request
 
 CLASSES = {"WARRIOR": "warrior", "PALADIN": "paladin", "HUNTER": "hunter", "ROGUE": "rogue", "PRIEST": "priest",
@@ -39,6 +41,22 @@ def priced(html):
     return {r["id"]: r["trainingcost"] for r in rows if r.get("trainingcost")}
 
 
+def spell_page_prices(cache, sid):
+    """Prices for a spell and its sibling ranks from the spell's own page (cached; polite to Wowhead)."""
+    path = os.path.join(cache, "wowhead-spells", f"{sid}.html")
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        req = urllib.request.Request(f"https://www.wowhead.com/classic/spell={sid}", headers={"User-Agent": "Mozilla/5.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=90) as resp, open(path, "wb") as f:
+                f.write(resp.read())
+        except OSError:
+            return {}
+        time.sleep(0.5)
+    html = open(path, encoding="utf-8", errors="replace").read()
+    return {int(i): int(c) for i, c in re.findall(r'"id":(\d+),[^{}]*?"trainingcost":(\d+)', html)}
+
+
 def our_ids(spell_data):
     out = {}
     parts = re.split(r"\n  ([A-Z]+) = \{", spell_data)
@@ -46,7 +64,9 @@ def our_ids(spell_data):
         rows = []
         for m in re.finditer(r"id = (\d+),[^\n]*?(?:alt = \{([^}]*)\})?\s*\},?\n", parts[i + 1]):
             ids = [int(m.group(1))] + [int(x) for x in re.findall(r"\d+", m.group(2) or "")]
-            rows.append(ids)
+            line = m.group(0)
+            lvl = re.search(r"level = (\d+)", line)
+            rows.append((ids, 'kind = "class"' in line and lvl is not None and int(lvl.group(1)) > 1))
         out[parts[i]] = rows
     return out
 
@@ -66,11 +86,18 @@ def main():
     for key, slug in CLASSES.items():
         prices = priced(page(args.cache, slug))
         entries = {}
-        for ids in ours.get(key, []):
+        for ids, trainable in ours.get(key, []):
             for sid in ids:
                 if sid in prices:
                     entries[ids[0]] = prices[sid]
                     break
+            else:
+                if trainable and key != "HUNTER":  # Hunter ranks were re-numbered in Forever; its seen prices rule
+                    extra = spell_page_prices(args.cache, ids[0])
+                    for sid in ids:
+                        if sid in extra:
+                            entries[ids[0]] = extra[sid]
+                            break
         lines.append(f"  {key} = {{")
         row = []
         for sid in sorted(entries):

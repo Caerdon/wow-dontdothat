@@ -33,7 +33,7 @@ MAGE	Cold Snap
 MAGE	Combustion
 MAGE	Critical Mass
 MAGE	Detect Magic
-MAGE	Elemental Precision
+MAGE	Precision
 MAGE	Fire Power
 MAGE	Flame Throwing
 MAGE	Frost Channeling
@@ -46,7 +46,7 @@ MAGE	Impact
 MAGE	Improved Blizzard
 MAGE	Improved Cone of Cold
 MAGE	Improved Fire Blast
-MAGE	Improved Fireball
+MAGE	Accelerant
 MAGE	Improved Flamestrike
 MAGE	Improved Frost Nova
 MAGE	Improved Frostbolt
@@ -61,12 +61,14 @@ MAGE	Winter's Chill
 PALADIN	Avenger's Shield
 PALADIN	Beacon of Light
 PALADIN	Blessing of Kings
+PALADIN	Blessing of Light
 PALADIN	Blessing of Salvation
 PALADIN	Blessing of Sanctuary
 PALADIN	Consecration
 PALADIN	Crusader Strike
 PALADIN	Divine Favor
 PALADIN	Divine Steed
+PALADIN	Greater Blessing of Light
 PALADIN	Greater Blessing of Salvation
 PALADIN	Greater Blessing of Sanctuary
 PALADIN	Hand of Reckoning
