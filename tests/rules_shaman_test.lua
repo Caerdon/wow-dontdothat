@@ -18,7 +18,7 @@ test("shaman: Enhancement keeps its imbues, Stormstrike and buff totems", functi
 end)
 
 test("shaman: Elemental keeps Chain Lightning, Flametongue and the fire totems", function()
-  for _, n in ipairs({ "Chain Lightning", "Lava Burst", "Fire Nova", "Magma Totem", "Flametongue Weapon", "Frost Shock" }) do
+  for _, n in ipairs({ "Chain Lightning", "Fire Nova", "Magma Totem", "Flametongue Weapon", "Frost Shock" }) do
     eq(s.tier(n, { "ELEM" }), "keep", n)
   end
 end)

@@ -18,7 +18,7 @@ local SHARED_CORE = {
 -- Handy now and then for any spec. The talent ones count only while the talent is active.
 local SHARED_SITUATIONAL = {
   "Cure Poison", "Cure Disease", "Totemic Recall", "Call of the Elements", "Call of the Ancestors",
-  "Call of the Spirits", "Totemic Projection", "Decoy Totem", "Healing Rain", "Frostbrand Weapon",
+  "Call of the Spirits", "Totemic Call", "Decoy Totem", "Healing Rain", "Frostbrand Weapon",
   "Flametongue Weapon", "Frost Shock",
 }
 
@@ -35,11 +35,11 @@ ns.Rules.Load({
   specs = {
     ELEM = {
       name = L["Elemental"], tree = 1, -- TalentTab order verified from the game tables
-      rotation = { needsReview = true, core = with(SHARED_CORE, { "Chain Lightning", "Lava Burst", "Fire Nova", "Fire Nova Totem", "Magma Totem", "Flametongue Weapon", "Frost Shock" }), situational = with(SHARED_SITUATIONAL, { "Mana Spring Totem", "Healing Stream Totem", "Water Shield" }) },
+      rotation = { needsReview = true, core = with(SHARED_CORE, { "Chain Lightning", "Fire Nova", "Fire Nova Totem", "Magma Totem", "Flametongue Weapon", "Frost Shock" }), situational = with(SHARED_SITUATIONAL, { "Mana Spring Totem", "Healing Stream Totem", "Water Shield" }) },
     },
     ENH = {
       name = L["Enhancement"], tree = 2, -- TalentTab order verified from the game tables
-      rotation = { needsReview = true, core = with(SHARED_CORE, { "Windfury Weapon", "Flametongue Weapon", "Frostbrand Weapon", "Stormstrike", "Strength of Earth Totem", "Grace of Air Totem", "Chain Lightning", "Fire Nova", "Fire Nova Totem", "Magma Totem", "Frost Shock" }), situational = with(SHARED_SITUATIONAL, { "Mana Spring Totem", "Healing Stream Totem", "Lava Burst", "Lava Lash", "Shamanistic Rage", "Water Shield" }) },
+      rotation = { needsReview = true, core = with(SHARED_CORE, { "Windfury Weapon", "Flametongue Weapon", "Frostbrand Weapon", "Stormstrike", "Strength of Earth Totem", "Grace of Air Totem", "Chain Lightning", "Fire Nova", "Fire Nova Totem", "Magma Totem", "Frost Shock" }), situational = with(SHARED_SITUATIONAL, { "Mana Spring Totem", "Healing Stream Totem", "Lava Lash", "Shamanistic Rage", "Water Shield" }) },
     },
     RESTO = {
       name = L["Restoration"], tree = 3, -- TalentTab order verified from the game tables
