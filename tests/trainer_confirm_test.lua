@@ -162,3 +162,24 @@ test("if the client blocks our addon, prompting switches off and purchases flow"
   eq(#rec.bought, 1)
   eq(#rec.asks, 0)
 end)
+
+test("on the Forever window the button is only hooked, never replaced", function()
+  local ns, env, button, rec = setup({ verdicts = { [5] = DEFER } })
+  env.ClassTrainerFrame.ScrollBox = {}
+  local original, pre = button.script, nil
+  button.HookScript = function(_, name, fn) if name == "PreClick" then pre = fn end end
+  truthy(ns.TrainerConfirm.Install(env))
+  truthy(button.script == original, "click handler untouched")
+  pre(button)
+  eq(rec.alerts, { "trainer:Distracting Shot" })
+  eq(#rec.asks, 0, "no question, so nothing can taint the purchase")
+end)
+
+test("when the client refuses us the button gets its own handler back", function()
+  local ns, env, button = setup()
+  local original = button.script
+  ns.TrainerConfirm.Install(env)
+  truthy(button.script ~= original)
+  ns.TrainerConfirm.Disable("blocked: x")
+  truthy(button.script == original)
+end)

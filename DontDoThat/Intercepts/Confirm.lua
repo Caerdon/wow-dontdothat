@@ -13,9 +13,11 @@ ns.TrainerConfirm = Confirm
 
 local installed = false
 local disabledReason
+local restore
 
 function Confirm.Reset()
   installed = false
+  restore = nil
   disabledReason = nil
 end
 
@@ -122,6 +124,22 @@ function Confirm.Handle(env, original, button, ...)
   end
 end
 
+-- WoW Forever's trainer window (a ScrollBox list). Replacing the Train button's click handler there taints the
+-- purchase, and the game refuses BuyTrainerService (seen with the hunter's pet trainer), so no question is asked.
+local function modernWindow(env)
+  local frame = env.ClassTrainerFrame
+  return type(frame) == "table" and type(frame.ScrollBox) == "table"
+end
+
+-- Warns (sound and banner) from a PreClick hook, which cannot taint or stop the purchase.
+function Confirm.WarnOnly(env, button)
+  local ok, verdict = pcall(Confirm.Decide, env)
+  if not ok or not verdict then return end
+  local settings = alertSettings()
+  if ns.Settings then settings.alertTiers = ns.Settings.PromptTiers() end
+  pcall(ns.Alert.Trigger, verdict, "trainer:" .. tostring(verdict.name), settings)
+end
+
 -- Wraps the Train button once. Safe to call repeatedly (the button only exists after the trainer
 -- window first loads).
 function Confirm.Install(env)
@@ -129,12 +147,18 @@ function Confirm.Install(env)
   if installed then return true end
   local button = env.ClassTrainerTrainButton
   if type(button) ~= "table" or type(button.GetScript) ~= "function" or type(button.SetScript) ~= "function" then return false end
+  if modernWindow(env) and type(button.HookScript) == "function" then
+    installed = pcall(button.HookScript, button, "PreClick", function(self) Confirm.WarnOnly(env, self) end)
+    if ns.Log then ns.Log.Add("confirm: Train button warns only (Forever window): %s", installed and "hooked" or "FAILED") end
+    return installed
+  end
   local okGet, original = pcall(button.GetScript, button, "OnClick")
   if not okGet or type(original) ~= "function" then return false end
   local okSet = pcall(button.SetScript, button, "OnClick", function(self, ...)
     return Confirm.Handle(env, original, self, ...)
   end)
   installed = okSet
+  if okSet then restore = function() pcall(button.SetScript, button, "OnClick", original) end end
   if ns.Log then ns.Log.Add("confirm: Train button click %s", okSet and "wrapped" or "FAILED to wrap") end
   return okSet
 end
@@ -142,6 +166,8 @@ end
 -- If the client blocks our confirm callback from completing the purchase, stop prompting.
 function Confirm.Disable(reason)
   disabledReason = reason
+  -- Our click handler taints every later purchase too, so give the button its own back.
+  if restore then restore(); restore = nil end
   if ns.Log then ns.Log.Add("confirm: prompts disabled (%s)", tostring(reason)) end
   if _G.DEFAULT_CHAT_FRAME and _G.DEFAULT_CHAT_FRAME.AddMessage then
     pcall(_G.DEFAULT_CHAT_FRAME.AddMessage, _G.DEFAULT_CHAT_FRAME,

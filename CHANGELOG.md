@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.4
+
+- Fixed the Forever trainer window refusing purchases, such as hunter pet training. The Train button is no longer replaced there, so a flagged spell gets a warning sound and banner but the purchase always goes through. If the game ever refuses the "Buy anyway?" question on Classic Era, the button gets its own handler back.
+
 ## 0.10.3
 
 - The Recommended trainer filter and its row marks now work in the Forever trainer window, with the filter in the Filters menu.
