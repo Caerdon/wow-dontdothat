@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3
+
+- The Recommended trainer filter and its row marks now work in the Forever trainer window, with the filter in the Filters menu.
+
 ## 0.10.2
 
 - Spell data refreshed for WoW Forever build 1.60.1.70790: new Rogue Death Mark and Shank, Shaman Totemic Projection is now Totemic Call, and Priest Binding Heal and Shaman Lava Burst are gone.
