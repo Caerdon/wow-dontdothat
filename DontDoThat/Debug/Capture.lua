@@ -227,6 +227,7 @@ local function hookFunction(env, saved, fname)
     end
     if fname == "ClassTrainerFrame_Update" then
       pcall(Capture.TrainerRows, env, saved)
+      pcall(Capture.ModernTrainer, env, saved)
       return
     end
     local index = ...
@@ -317,7 +318,142 @@ function Capture.Dropdown(env, saved)
   end
 end
 
+-- Forever's trainer window lists its rows in a ScrollBox (ClassTrainerFrame.ScrollBox) instead of the
+-- ClassTrainerSkillN buttons Classic Era has. Record what that list holds and what its row frames look like,
+-- so row hiding and marks can be written against facts. All UNVERIFIED API names; every call is guarded.
+local function scalarFields(t, limit)
+  local out = {}
+  pcall(function()
+    for key, value in pairs(t) do
+      local kind = type(value)
+      if type(key) == "string" then
+        if kind == "string" or kind == "number" or kind == "boolean" then
+          out[#out + 1] = key .. "=" .. tostring(value)
+        else
+          out[#out + 1] = key .. ":" .. kind
+        end
+      end
+    end
+  end)
+  table.sort(out)
+  while #out > (limit or 40) do out[#out] = nil end
+  return table.concat(out, " ")
+end
+
+function Capture.ModernTrainer(env, saved)
+  local frame = env.ClassTrainerFrame
+  local box = type(frame) == "table" and frame.ScrollBox or nil
+  if type(box) ~= "table" then return end
+  local m = { frameKeys = {}, boxKeys = {}, data = {}, frames = {} }
+  pcall(function()
+    for key, value in pairs(frame) do
+      if type(key) == "string" and (type(value) == "function" or type(value) == "table") then
+        m.frameKeys[#m.frameKeys + 1] = key .. ":" .. type(value)
+      end
+    end
+  end)
+  table.sort(m.frameKeys)
+  pcall(function()
+    for key, value in pairs(box) do
+      if type(key) == "string" and type(value) ~= "table" or key == "ScrollTarget" then m.boxKeys[#m.boxKeys + 1] = key .. ":" .. type(value) end
+    end
+  end)
+  table.sort(m.boxKeys)
+  -- Methods that live on the frame's mixin (not in pairs(frame)) and may drive the list.
+  pcall(function()
+    local meta = getmetatable(frame)
+    local index = type(meta) == "table" and meta.__index
+    m.mixin = {}
+    if type(index) == "table" then
+      for key, value in pairs(index) do
+        if type(key) == "string" and type(value) == "function" then m.mixin[#m.mixin + 1] = key end
+      end
+    end
+    table.sort(m.mixin)
+  end)
+  -- Plain maps the frame keeps (display row <-> service index, collapsed categories).
+  m.maps = {}
+  for _, name in ipairs({ "displayIndexToSkillIndex", "skillIndexToDisplayIndex", "collapsedCategories" }) do
+    pcall(function()
+      local map, parts = frame[name], {}
+      if type(map) == "table" then
+        for k, v in pairs(map) do if #parts < 24 then parts[#parts + 1] = tostring(k) .. "=" .. tostring(v) end end
+        table.sort(parts)
+      end
+      m.maps[#m.maps + 1] = name .. ": " .. table.concat(parts, " ")
+    end)
+  end
+  pcall(function()
+    if type(box.GetDataProviderSize) == "function" then m.size = box:GetDataProviderSize() end
+    if type(box.ForEachElementData) ~= "function" then return end
+    box:ForEachElementData(function(element)
+      if #m.data >= 14 then return end
+      -- A tree node holds its payload behind GetData(); record that, not the node's own methods.
+      local payload = element
+      if type(element) == "table" and type(element.GetData) == "function" then
+        local ok, d = pcall(element.GetData, element)
+        if ok then payload = d end
+      end
+      m.data[#m.data + 1] = ("%s %s"):format(type(payload), type(payload) == "table" and scalarFields(payload, 20) or tostring(payload))
+    end)
+  end)
+  pcall(function()
+    if type(box.ForEachFrame) ~= "function" then return end
+    box:ForEachFrame(function(row)
+      if #m.frames >= 6 or type(row) ~= "table" then return end
+      local data
+      if type(row.GetElementData) == "function" then
+        local ok, d = pcall(row.GetElementData, row)
+        if ok and type(d) == "table" then
+          if type(d.GetData) == "function" then
+            local okData, payload = pcall(d.GetData, d)
+            if okData and type(payload) == "table" then d = payload end
+          end
+          data = scalarFields(d, 20)
+        end
+      end
+      m.frames[#m.frames + 1] = ("%s | data: %s | fields: %s"):format(
+        type(row.GetObjectType) == "function" and tostring(row:GetObjectType()) or "?", tostring(data), scalarFields(row, 30))
+    end)
+  end)
+  store(saved).modernTrainer = m
+end
+
+-- Lists the entries of the trainer's filter menu (and of any submenu) as they are built, so the export shows
+-- where an added entry can go. Registered once; it records only while debug is on.
+local function describeMenu(root, depth, out)
+  if depth > 3 then return end
+  for _, element in root:EnumerateElementDescriptions() do
+    if type(element) == "table" then
+      local text = type(element.GetText) == "function" and select(2, pcall(element.GetText, element)) or element.text
+      out[#out + 1] = ("%s%s [%s]"):format(("  "):rep(depth), tostring(text), tostring(element.type or element.template or "?"))
+      if type(element.HasElements) == "function" and element:HasElements() then describeMenu(element, depth + 1, out) end
+    end
+  end
+end
+
+function Capture.MenuEntries(env, saved)
+  if hooked.menuEntries then return end
+  local menu = env.Menu
+  if type(menu) ~= "table" or type(menu.ModifyMenu) ~= "function" then return end
+  hooked.menuEntries = pcall(menu.ModifyMenu, "MENU_TRAINER_FILTER", function(_, root)
+    if not active() then return end
+    local out = {}
+    pcall(describeMenu, root, 0, out)
+    store(saved).menuEntries = out
+    note("capture: trainer filter menu has %d entries", #out)
+  end)
+end
+
+-- Runs fn shortly after the current event, once the client has finished filling the window.
+function Capture.Later(env, fn)
+  local timer = env.C_Timer
+  if type(timer) == "table" and type(timer.After) == "function" then pcall(timer.After, 0.3, fn) else pcall(fn) end
+end
+
 function Capture.InstallHooks(env, saved)
+  pcall(Capture.MenuEntries, env, saved)
+  pcall(Capture.ModernTrainer, env, saved)
   pcall(Capture.Dropdown, env, saved)
   for _, fname in ipairs(Capture.HookedFunctions) do hookFunction(env, saved, fname) end
   hookTrainButton(env, saved)
@@ -330,12 +466,14 @@ local handlers = {
   TRAINER_SHOW = function(env, saved)
     Capture.InstallHooks(env, saved)
     Capture.Trainer(env, saved)
+    Capture.Later(env, function() pcall(Capture.ModernTrainer, env, saved) end)
   end,
   TRAINER_UPDATE = function(env, saved)
     -- The trainer UI is load-on-demand, so its button and refresh function may not exist at
     -- TRAINER_SHOW on the first open. Hooks are idempotent, so retry on every update.
     Capture.InstallHooks(env, saved)
     Capture.Trainer(env, saved)
+    Capture.Later(env, function() pcall(Capture.ModernTrainer, env, saved) end)
   end,
   TRAINER_CLOSED = function() end,
   CONFIRM_TALENT_WIPE = function(env, saved, cost, respecs)
@@ -437,6 +575,20 @@ function Capture.Lines(saved)
       lines[#lines + 1] = "  open menu tags after clicking the filter: none recorded (click the filter with debug on)"
     end
     for _, tags in ipairs(d.tags) do lines[#lines + 1] = "  open menu tags after clicking the filter: " .. tags end
+  end
+  if c.menuEntries then
+    lines[#lines + 1] = "  trainer filter menu entries (as built, our own entry included):"
+    for _, line in ipairs(c.menuEntries) do lines[#lines + 1] = "    " .. line end
+  end
+  if c.modernTrainer then
+    local m = c.modernTrainer
+    lines[#lines + 1] = ("  trainer ScrollBox: data provider size=%s"):format(tostring(m.size))
+    lines[#lines + 1] = "    ClassTrainerFrame members: " .. (#m.frameKeys > 0 and table.concat(m.frameKeys, " ") or "none")
+    lines[#lines + 1] = "    ScrollBox members: " .. (#m.boxKeys > 0 and table.concat(m.boxKeys, " ") or "none")
+    lines[#lines + 1] = "    ClassTrainerFrame mixin methods: " .. (#(m.mixin or {}) > 0 and table.concat(m.mixin, " ") or "none")
+    for _, line in ipairs(m.maps or {}) do lines[#lines + 1] = "    " .. line end
+    for _, d in ipairs(m.data) do lines[#lines + 1] = "    data " .. d end
+    for _, f in ipairs(m.frames) do lines[#lines + 1] = "    row frame " .. f end
   end
   if c.trainerRows then
     local tr = c.trainerRows

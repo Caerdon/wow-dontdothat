@@ -148,6 +148,67 @@ local function degrade(env, reason)
   if type(env.ClassTrainerFrame_Update) == "function" then pcall(env.ClassTrainerFrame_Update) end
 end
 
+-- WoW Forever lists the services in a ScrollBox over a tree data provider (ClassTrainerFrame.ScrollBox);
+-- each service node's data is { skillIndex, displayIndex, ... } and Blizzard resolves a click through those
+-- indexes, so removing a node hides its row without renumbering anything. Observed on 1.60.1 (build 70790).
+local function isModern(env, frame)
+  return type(frame.ScrollBox) == "table" and type(env.ClassTrainerSkill1) ~= "table"
+end
+
+local function nodeData(node)
+  if type(node) ~= "table" or type(node.GetData) ~= "function" then return nil end
+  local ok, data = pcall(node.GetData, node)
+  return ok and type(data) == "table" and data or nil
+end
+
+-- Removes the nodes in list whose service index is in hidden (a set), each through its own parent, and then
+-- any category node left with nothing in it. list is every node the ScrollBox holds, categories included.
+-- Returns how many nodes went.
+function Filter.PruneNodes(list, hidden)
+  local removed, categories = 0, {}
+  for _, node in ipairs(list) do
+    local data = nodeData(node)
+    if data and data.skillIndex then
+      if hidden[data.skillIndex] then
+        local parent = type(node.GetParent) == "function" and node:GetParent()
+        assert(type(parent) == "table" and type(parent.Remove) == "function", "a service node has no parent to remove it from")
+        parent:Remove(node)
+        removed = removed + 1
+      end
+    elseif type(node.GetNodes) == "function" then
+      categories[#categories + 1] = node
+    end
+  end
+  for _, node in ipairs(categories) do
+    local parent = type(node.GetParent) == "function" and node:GetParent()
+    if #node:GetNodes() == 0 and type(parent) == "table" and type(parent.Remove) == "function" then
+      parent:Remove(node)
+      removed = removed + 1
+    end
+  end
+  return removed
+end
+
+function Filter.RenderModern(env, frame, visibility, rows)
+  local box = frame.ScrollBox
+  assert(type(box.ForEachElementData) == "function", "the list cannot be enumerated")
+  local shown = {}
+  for _, row in ipairs(visibility.visible) do shown[row.index] = true end
+  local hidden = {}
+  for _, row in ipairs(rows) do
+    if row.index and not shown[row.index] then hidden[row.index] = true end
+  end
+  local list = {}
+  box:ForEachElementData(function(node) list[#list + 1] = node end)
+  local removed = Filter.PruneNodes(list, hidden)
+  if ns.Log then ns.Log.Add("filter: removed %d node(s) from the trainer list", removed) end
+  frame.DontDoThatFiltered = true
+  if type(box.FullUpdate) == "function" then
+    local constants = env.ScrollBoxConstants
+    pcall(box.FullUpdate, box, constants and constants.UpdateImmediately)
+  end
+end
+
 -- Runs after Blizzard has drawn the list. Does nothing unless something is actually hidden.
 function Filter.Apply(env)
   env = env or _G
@@ -170,9 +231,19 @@ function Filter.Apply(env)
   local visibility = ns.TrainerVisibility.Compute(computed.rows, function(row)
     return computed.verdicts[row.index]
   end, { enabled = true })
+  if ns.Log then
+    local tiers = {}
+    for _, row in ipairs(computed.rows) do
+      local verdict = computed.verdicts[row.index]
+      if verdict then tiers[#tiers + 1] = ("%s=%s"):format(tostring(row.name), tostring(verdict.tier)) end
+    end
+    ns.Log.Add("filter: %d rows, %d to hide (%s)", #computed.rows, visibility.hiddenCount, table.concat(tiers, ", "))
+  end
   if visibility.hiddenCount == 0 then return putBack() end
 
-  local ok, err = pcall(Filter.Render, env, visibility)
+  local render = isModern(env, frame) and function() Filter.RenderModern(env, frame, visibility, computed.rows) end
+    or function() Filter.Render(env, visibility) end
+  local ok, err = pcall(render)
   if not ok then
     degrade(env, err)
     return false
@@ -200,6 +271,30 @@ end
 
 local registered = false
 
+local function elementText(element)
+  if type(element.GetText) == "function" then
+    local ok, text = pcall(element.GetText, element)
+    if ok and text ~= nil then return text end
+  end
+  return element.text
+end
+
+-- Forever's trainer menu is Settings > Filters > (Available, Unavailable, Already Known) plus Categorize,
+-- where Classic Era's was one flat Filter list. The entry belongs with the other filters: find the
+-- "Filters" submenu by its label, else the first element that has children, else use the menu itself.
+function Filter.FiltersMenu(env, rootDescription)
+  local found, firstParent
+  pcall(function()
+    for _, element in rootDescription:EnumerateElementDescriptions() do
+      if type(element) == "table" then
+        if env.FILTERS and elementText(element) == env.FILTERS then found = element; return end
+        if not firstParent and type(element.HasElements) == "function" and element:HasElements() then firstParent = element end
+      end
+    end
+  end)
+  return found or firstParent or rootDescription
+end
+
 function Filter.Enable(env)
   env = env or _G
   if registered then return true end
@@ -213,7 +308,8 @@ function Filter.Enable(env)
     -- built: with the addon off, or the What to watch switch off, the entry is simply not offered.
     if not offered() then return end
     pcall(function()
-      rootDescription:CreateCheckbox(L["Recommended |cff9d9d9d(Don't Do That)|r"], isSelected, function() setSelected(env) end)
+      Filter.FiltersMenu(env, rootDescription):CreateCheckbox(L["Recommended |cff9d9d9d(Don't Do That)|r"], isSelected,
+        function() setSelected(env) end)
     end)
   end)
   if ns.Log then ns.Log.Add("filter: menu entry %s", registered and "registered" or "FAILED to register") end

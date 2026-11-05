@@ -49,7 +49,12 @@ Trainer.widgets = {
     if not info then
       info = ns.InfoBubble.Create(button)
       if not info then return end
-      info:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+      if type(button.GetElementData) == "function" then
+        -- Forever's row shows the price at its top right; sit below it.
+        info:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -8, 6)
+      else
+        info:SetPoint("RIGHT", button, "RIGHT", -8, 0)
+      end
       button.dontdothatInfo = info
     end
     ns.InfoBubble.Refresh(info, verdict)
@@ -57,17 +62,50 @@ Trainer.widgets = {
   end,
 }
 
+-- WoW Forever rows come from ClassTrainerFrame.ScrollBox; a row's service index is in its element data
+-- (a tree node whose GetData() holds skillIndex).
+local function modernServiceIndex(row)
+  if type(row) ~= "table" or type(row.GetElementData) ~= "function" then return nil end
+  local ok, node = pcall(row.GetElementData, row)
+  if not ok or type(node) ~= "table" then return nil end
+  local data = node
+  if type(node.GetData) == "function" then
+    local okData, payload = pcall(node.GetData, node)
+    data = okData and payload or nil
+  end
+  return type(data) == "table" and data.skillIndex or nil
+end
+
+-- The verdicts of the last full pass, so a row the ScrollBox recycles while scrolling can be marked at once.
+Trainer.lastVerdicts = nil
+
+function Trainer.MarkModernRow(row, widgets)
+  local verdicts = Trainer.lastVerdicts
+  if not verdicts then return end
+  local index = modernServiceIndex(row)
+  if index then (widgets or Trainer.widgets).set(row, verdicts[index]) end
+end
+
 -- Applies the computed verdicts to the visible row buttons. widgets.set(button, verdict-or-nil).
 function Trainer.Refresh(env, widgets)
   env = env or _G
   widgets = widgets or Trainer.widgets
   local computed = enabled() and Trainer.Compute(env) or nil
   if computed and ns.Tally then pcall(ns.Tally.ObserveLive, env, computed.trainer) end
+  Trainer.lastVerdicts = computed and computed.verdicts or nil
   for i = 1, MAX_BUTTONS do
     local button = env["ClassTrainerSkill" .. i]
     if type(button) ~= "table" then break end
     local ok, id = pcall(function() return button:GetID() end)
     widgets.set(button, computed and ok and computed.verdicts[id] or nil)
+  end
+  local frame = env.ClassTrainerFrame
+  local box = type(frame) == "table" and frame.ScrollBox
+  if type(box) == "table" and type(box.ForEachFrame) == "function" and type(env.ClassTrainerSkill1) ~= "table" then
+    box:ForEachFrame(function(row)
+      local index = modernServiceIndex(row)
+      if index then widgets.set(row, computed and computed.verdicts[index] or nil) end
+    end)
   end
 end
 
@@ -100,9 +138,19 @@ function Trainer.Enable(eventTarget, env)
     end)
     if ns.Log then ns.Log.Add("overlay: ClassTrainerFrame_Update %s", hooked and "hooked" or "FAILED to hook") end
   end
+  -- Forever recycles row frames while scrolling; mark each one as Blizzard sets it up.
+  local rowHooked = false
+  local function installRowHook()
+    if rowHooked or type(env.hooksecurefunc) ~= "function" or type(env.ClassTrainerFrame_InitServiceButton) ~= "function" then return end
+    rowHooked = pcall(env.hooksecurefunc, "ClassTrainerFrame_InitServiceButton", function(button)
+      pcall(Trainer.MarkModernRow, button)
+    end)
+    if ns.Log then ns.Log.Add("overlay: ClassTrainerFrame_InitServiceButton %s", rowHooked and "hooked" or "FAILED to hook") end
+  end
   for _, event in ipairs({ "TRAINER_SHOW", "TRAINER_UPDATE" }) do
     pcall(eventTarget.RegisterEvent, eventTarget, event, function()
       installHook()
+      installRowHook()
       -- The Train button only exists after the trainer window first loads.
       if ns.TrainerConfirm then pcall(ns.TrainerConfirm.Install, env) end
       Trainer.SafeRefresh(env)
