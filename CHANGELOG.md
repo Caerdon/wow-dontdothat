@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.5
+
+- Auction house purchases are now checked in the Forever client. Its retail-style auction house (single items and stackable goods) was never hooked, so flagged items such as bags sailed through without a question. Classic Era is unchanged.
+
 ## 0.10.4
 
 - Fixed the Forever trainer window refusing purchases, such as hunter pet training. The Train button is no longer replaced there, so a flagged spell gets a warning sound and banner but the purchase always goes through. If the game ever refuses the "Buy anyway?" question on Classic Era, the button gets its own handler back.

@@ -85,6 +85,13 @@ local function flaggedGrimoire(link)
   return family, rule.reason
 end
 
+-- The Forever client moved GetItemInfoInstant into C_Item; both return the same values.
+local function instantInfo(env)
+  if type(env.GetItemInfoInstant) == "function" then return env.GetItemInfoInstant end
+  local c = env.C_Item
+  if type(c) == "table" and type(c.GetItemInfoInstant) == "function" then return c.GetItemInfoInstant end
+end
+
 -- Everything known about one purchase: its item numbers, category, mode, and whether it is flagged (and if
 -- not, why not).
 function Guard.Inspect(surface, link, total)
@@ -100,8 +107,9 @@ function Guard.Inspect(surface, link, total)
       return info
     end
   end
-  if type(_G.GetItemInfoInstant) ~= "function" or not link then info.why = "no item info"; return info end
-  local _, _, _, equipLoc, _, classID, subClassID = _G.GetItemInfoInstant(link)
+  local instant = instantInfo(_G)
+  if not instant or not link then info.why = "no item info"; return info end
+  local _, _, _, equipLoc, _, classID, subClassID = instant(link)
   if not classID then info.why = "item not cached"; return info end
   info.classID, info.subClassID, info.equipLoc = classID, subClassID, equipLoc
   info.category = ns.ItemCategory.Classify({ classID = classID, subClassID = subClassID, equipLoc = equipLoc })
@@ -204,7 +212,7 @@ function Guard.Report(env)
   local report = {
     client = ("%s (build %s, interface %s)"):format(tostring(buildInfo[1]), tostring(buildInfo[2]), tostring(buildInfo[4])),
     promptsSwitchedOffBy = disabledReason or "no",
-    GetItemInfoInstant = type(env.GetItemInfoInstant) == "function" and "available" or "MISSING",
+    GetItemInfoInstant = instantInfo(env) and "available" or "MISSING",
     vendor = ns.Merchant and ns.Merchant.Status(env) or "module missing",
     auction = ns.Auction and ns.Auction.Status(env) or "module missing",
     guardedDialogs = ns.Resets and ns.Resets.Status() or "module missing",
