@@ -13,6 +13,7 @@ ns.TrainerConfirm = Confirm
 
 local installed = false
 local disabledReason
+local confirming -- true while our callback runs the trainer's own purchase
 local restore
 
 function Confirm.Reset()
@@ -61,9 +62,9 @@ local function selectedIndex(env)
 end
 
 -- Returns the verdict to alert or prompt about, or nil to let the click through.
-function Confirm.Decide(env)
+function Confirm.Decide(env, index)
   if not addonEnabled() then return nil end
-  local index = selectedIndex(env)
+  index = index or selectedIndex(env)
   if not index then return nil end
   local computed = ns.TrainerOverlay.Compute(env)
   local verdict = computed and computed.verdicts[index]
@@ -71,14 +72,8 @@ function Confirm.Decide(env)
   return nil
 end
 
--- original(self, ...) is the Train button's own handler.
-function Confirm.Handle(env, original, button, ...)
-  local ok, verdict, index = pcall(Confirm.Decide, env)
-  if not ok or not verdict then
-    if not ok and ns.Log then ns.Log.Add("confirm: decision failed: %s", tostring(verdict)) end
-    return original(button, ...)
-  end
-
+-- Asks about a flagged purchase. proceed(...) makes the purchase and is called with the same arguments on confirm.
+local function run(env, verdict, proceed, ...)
   local key = "trainer:" .. tostring(verdict.name)
   local settings = alertSettings()
   if ns.Settings then settings.alertTiers = ns.Settings.PromptTiers() end
@@ -86,7 +81,7 @@ function Confirm.Handle(env, original, button, ...)
   if not promptsEnabled() then
     -- Alert only: sound and banner, and the purchase goes ahead.
     pcall(ns.Alert.Trigger, verdict, key, settings)
-    return original(button, ...)
+    return proceed(...)
   end
 
   -- The dialog says everything the banner would, so a prompt gets the sound alone.
@@ -107,7 +102,10 @@ function Confirm.Handle(env, original, button, ...)
       function()
         markAsked()
         if ns.Log then ns.Log.Add("confirm: bought %s anyway", tostring(verdict.name)) end
-        original(button, unpack(args))
+        confirming = true
+        local okc, err = pcall(proceed, unpack(args))
+        confirming = false
+        if not okc then error(err, 0) end
       end,
       function()
         markAsked()
@@ -120,8 +118,18 @@ function Confirm.Handle(env, original, button, ...)
       pcall(ns.AlertBanner.Show, verdict, verdict.name)
     end
     if ns.Log then ns.Log.Add("confirm: no prompt available for %s, letting it through", tostring(verdict.name)) end
+    return proceed(...)
+  end
+end
+
+-- original(self, ...) is the Train button's own handler.
+function Confirm.Handle(env, original, button, ...)
+  local ok, verdict = pcall(Confirm.Decide, env)
+  if not ok or not verdict then
+    if not ok and ns.Log then ns.Log.Add("confirm: decision failed: %s", tostring(verdict)) end
     return original(button, ...)
   end
+  return run(env, verdict, function(...) return original(button, ...) end, ...)
 end
 
 -- WoW Forever's trainer window (a ScrollBox list). Replacing the Train button's click handler there taints the
@@ -147,6 +155,24 @@ function Confirm.Install(env)
   if installed then return true end
   local button = env.ClassTrainerTrainButton
   if type(button) ~= "table" or type(button.GetScript) ~= "function" or type(button.SetScript) ~= "function" then return false end
+  if modernWindow(env) then
+    -- Forever: leave the button alone and wrap the game's own BuyTrainerService, as the vendor and auction purchases
+    -- are wrapped. Falls back to the warning below when there is nothing to wrap.
+    local buy = env.BuyTrainerService
+    if type(buy) == "function" then
+      local wrapper
+      wrapper = function(index, ...)
+        local ok, verdict = pcall(Confirm.Decide, env, index)
+        if not ok or not verdict then return buy(index, ...) end
+        return run(env, verdict, function(...) return buy(index, ...) end, ...)
+      end
+      env.BuyTrainerService = wrapper
+      restore = function() if env.BuyTrainerService == wrapper then env.BuyTrainerService = buy end end
+      installed = true
+      if ns.Log then ns.Log.Add("confirm: BuyTrainerService wrapped (Forever window)") end
+      return true
+    end
+  end
   if modernWindow(env) and type(button.HookScript) == "function" then
     installed = pcall(button.HookScript, button, "PreClick", function(self) Confirm.WarnOnly(env, self) end)
     if ns.Log then ns.Log.Add("confirm: Train button warns only (Forever window): %s", installed and "hooked" or "FAILED") end
@@ -178,7 +204,10 @@ end
 function Confirm.Watch(eventTarget)
   for _, event in ipairs({ "ADDON_ACTION_FORBIDDEN", "ADDON_ACTION_BLOCKED" }) do
     pcall(eventTarget.RegisterEvent, eventTarget, event, function(_, who, func)
-      if who == addonName then Confirm.Disable("blocked: " .. tostring(func)) end
+      -- Blocks from other guards (bank, stable...) are theirs to handle; only a trainer purchase switches this off.
+      if who == addonName and (confirming or tostring(func):find("Trainer", 1, true)) then
+        Confirm.Disable("blocked: " .. tostring(func))
+      end
     end)
   end
 end
