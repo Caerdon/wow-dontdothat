@@ -58,6 +58,7 @@ local function env()
   local e = {}
   e.UnitClass = function() return "Hunter", "HUNTER", 3 end
   e.UnitLevel = function() return 10 end
+  e.UnitName = function() return "Hunter Trainer" end
   e.GetNumTrainerServices = function() return #ROWS end
   e.GetTrainerServiceInfo = function(i) local r = ROWS[i]; return r[1], r[2], r[3], 1 end
   e.GetTrainerServiceCost = function(i) return ROWS[i][4] end

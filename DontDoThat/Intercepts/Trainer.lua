@@ -12,7 +12,7 @@ local MAX_BUTTONS = 20
 -- to evaluate (unsupported class, trainer unreadable).
 function Trainer.Compute(env)
   local profile = ns.Context.Profile(env)
-  if not profile then return nil end
+  if not profile or ns.Adapter.IsBeastTraining(env) then return nil end
   local trainer = ns.Adapter.ReadTrainer(env)
   if not trainer.ok then return nil end
   local verdicts = {}

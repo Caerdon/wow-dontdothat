@@ -150,8 +150,18 @@ end
 
 -- Wraps the Train button once. Safe to call repeatedly (the button only exists after the trainer
 -- window first loads).
+-- Beast training must stay untouched: wrapping BuyTrainerService taints the game's own purchase and it refuses the
+-- ones that cost training points. So the wrapper is taken off for that window and put back for any other trainer.
+function Confirm.Release()
+  if restore then restore(); restore = nil; installed = false end
+end
+
 function Confirm.Install(env)
   env = env or _G
+  if ns.Adapter and ns.Adapter.IsBeastTraining(env) then
+    Confirm.Release()
+    return false
+  end
   if installed then return true end
   local button = env.ClassTrainerTrainButton
   if type(button) ~= "table" or type(button.GetScript) ~= "function" or type(button.SetScript) ~= "function" then return false end

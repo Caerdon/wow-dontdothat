@@ -247,6 +247,19 @@ function Adapter.ReadNpcId(env)
   return type(name) == "string" and name or nil
 end
 
+-- Beast training (the hunter's pet abilities, paid in training points) opens the trainer window with the pet as the
+-- "npc" unit, or with no "npc" at all (the debug log names that case "unknown"). The addon stays out of it. A Pet
+-- Trainer NPC is neither, so it gets the full treatment.
+function Adapter.IsBeastTraining(env)
+  env = env or _G
+  if type(env.UnitName) ~= "function" then return false end -- cannot tell
+  local guid, name = call(env, "UnitGUID", "npc"), call(env, "UnitName", "npc")
+  if not (type(guid) == "string" and guid ~= "") and not (type(name) == "string" and name ~= "") then return true end
+  if call(env, "UnitIsUnit", "npc", "pet") then return true end
+  local petGuid = call(env, "UnitGUID", "pet")
+  return type(guid) == "string" and guid == petGuid
+end
+
 -- Riding is bought as a spell, and the player has it when the spellbook knows any of the IDs. Forever has
 -- Apprentice Riding (the level 40 goal) and Journeyman Riding (level 60). Classic Era has neither: riding is the
 -- racial passive of the player's mount (Horse Riding, Wolf Riding, Ram Riding, Tiger Riding, Raptor Riding, Kodo
