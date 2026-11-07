@@ -1,7 +1,7 @@
 ## Interface: 11509
 ## Title: Don't Do That
 ## Notes: Warns you away from unnecessary gold spending until you have bought your level 40 and level 60 mounts.
-## Version: 0.10.5
+## Version: 0.10.6
 ## Author: NullStatBonus
 ## X-Curse-Project-ID: 1766476
 ## X-Wago-ID: mKOa0DNx

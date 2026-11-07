@@ -306,3 +306,34 @@ test("identity checks run even with no trainer open, and the report reuses its t
   local ns, env = identityEnv()
   truthy(ns.Probe.TrainerIds(env):find("== identity checks ==", 1, true))
 end)
+
+test("trait talents lists nodes with points and survives missing APIs", function()
+  local P = load()
+  eq(P.TraitTalents({})[1], "  unavailable: no C_ClassTalents / C_Traits")
+  local text = table.concat(P.TraitTalents({
+    C_ClassTalents = { GetActiveConfigID = function() return 7 end },
+    C_Traits = {
+      GetConfigInfo = function() return { treeIDs = { 1 } } end,
+      GetTreeNodes = function() return { 10, 11 } end,
+      GetNodeInfo = function(_, id)
+        if id == 10 then return { currentRank = 2, maxRanks = 5, activeEntry = { entryID = 100 } } end
+        return { currentRank = 0 }
+      end,
+      GetEntryInfo = function() return { definitionID = 200 } end,
+      GetDefinitionInfo = function() return { spellID = 3045 } end,
+    },
+  }), "\n")
+  truthy(text:find("node 10 rank 2/5 entry 100 spell 3045", 1, true))
+  truthy(text:find("2 points spent", 1, true))
+  falsy(text:find("node 11", 1, true))
+end)
+
+test("popups reports missing guard dialogs and related extras", function()
+  local P = load()
+  local text = table.concat(P.Popups({ StaticPopupDialogs = {
+    CONFIRM_BUY_BANK_SLOT = {}, CONFIRM_TALENT_WIPE = {}, CONFIRM_RESPEC_SPEC = {}, UNRELATED = {} } }), "\n")
+  truthy(text:find("CONFIRM_BUY_BANK_SLOT: present", 1, true))
+  truthy(text:find("COD_CONFIRMATION: MISSING", 1, true))
+  truthy(text:find("other related popups: CONFIRM_RESPEC_SPEC", 1, true))
+  falsy(text:find("UNRELATED", 1, true))
+end)

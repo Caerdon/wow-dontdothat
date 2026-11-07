@@ -39,6 +39,13 @@ local KINDS = {
   },
   pet = {
     popups = { "CONFIRM_PET_UNLEARN" }, confirmFn = "ConfirmPetUnlearn", event = "CONFIRM_PET_UNLEARN", label = L["Pet skill reset"],
+    -- Forever has no pet-unlearn dialog or call: the pet trainer opens CONFIRM_TALENT_WIPE with pet text, and its Accept
+    -- runs ConfirmTalentWipe (seen in the export). onPopupShown tells the two apart by the dialog text.
+    done = { "ConfirmPetUnlearn", "ConfirmTalentWipe" },
+    accept = function(env, _, which)
+      if type(env.ConfirmPetUnlearn) == "function" then env.ConfirmPetUnlearn()
+      elseif which == "CONFIRM_TALENT_WIPE" and type(env.ConfirmTalentWipe) == "function" then env.ConfirmTalentWipe() end
+    end,
     title = L["Take every skill off your pet?"], ask = L["Reset anyway?"], rises = true,
     advice = L["Taking skills off your pet costs gold, and more each time. Only do it if you really need to."],
     avoided = function(state) ns.Ledger.RecordPetResetAvoided(state) end,
@@ -54,15 +61,20 @@ local KINDS = {
     performed = function(state, cost) ns.Ledger.RecordItemPerformed(state, cost) end,
   },
   stable = {
-    guard = "stable", popups = { "CONFIRM_BUY_STABLE_SLOT" }, done = { "BuyStableSlot" }, label = L["Stable slot"],
+    guard = "stable", popups = { "CONFIRM_BUY_STABLE_SLOT" }, done = { "BuyStableSlot", "C_StableInfo.BuyStableSlot" }, label = L["Stable slot"],
     title = L["Buy another stable slot?"], ask = L["Buy anyway?"], rises = true,
     advice = L["Stable slots cost gold, and more each time. Only buy one if you really need to keep another pet."],
     price = function(env)
-      if type(env.GetNextStableSlotCost) ~= "function" then return nil end
-      local ok, cost = pcall(env.GetNextStableSlotCost)
+      local f = env.GetNextStableSlotCost or (type(env.C_StableInfo) == "table" and env.C_StableInfo.GetNextStableSlotCost)
+      if type(f) ~= "function" then return nil end
+      local ok, cost = pcall(f)
       return ok and cost or nil
     end,
-    accept = function(env) if type(env.BuyStableSlot) == "function" then env.BuyStableSlot() end end,
+    -- Forever moved the stable calls into C_StableInfo; the globals are gone there.
+    accept = function(env)
+      local f = env.BuyStableSlot or (type(env.C_StableInfo) == "table" and env.C_StableInfo.BuyStableSlot)
+      if type(f) == "function" then f() end
+    end,
     avoided = function(state, cost) ns.Ledger.RecordItemAvoided(state, cost) end,
     performed = function(state, cost) ns.Ledger.RecordItemPerformed(state, cost) end,
   },
@@ -196,6 +208,7 @@ local function present(env, key, kind, which, data)
     local ok, cost = pcall(kind.price, env, data)
     lastQuote[key] = ok and type(cost) == "number" and cost or nil
   end
+  if key == "pet" and not lastQuote.pet then lastQuote.pet = lastQuote.talent end -- Forever sends the talent-wipe event
   seen[key] = { dialog = which, price = lastQuote[key] or "unknown" }
   warn(key, kind)
 
@@ -239,8 +252,19 @@ local function present(env, key, kind, which, data)
   end
 end
 
+-- Is this CONFIRM_TALENT_WIPE really the pet trainer's? Its text talks about the pet (the client's word for it, or English).
+local function isPetWipe(env, which)
+  local frame = findFrame(env, which)
+  local text = frame and textObject(frame)
+  local current = text and type(text.GetText) == "function" and text:GetText()
+  if type(current) ~= "string" then return false end
+  current = current:lower()
+  return current:find("pet", 1, true) ~= nil or (type(env.PET) == "string" and current:find(env.PET:lower(), 1, true) ~= nil)
+end
+
 local function onPopupShown(env, which, data)
   local key = KIND_OF[which]
+  if key == "talent" and isPetWipe(env, which) then key = "pet" end
   local kind = key and KINDS[key]
   if not kind or not active(kind) then return end
   if ns.Log then ns.Log.Add("reset: the game's %s dialog opened", kind.label) end
@@ -286,7 +310,12 @@ function Resets.Enable(eventTarget, env)
     local fns = kind.done or { kind.confirmFn }
     for _, name in ipairs(fns) do
       watched[name] = true
-      if type(env[name]) == "function" then
+      local owner, fname = name:match("^(.-)%.(.+)$") -- "C_StableInfo.BuyStableSlot"
+      if owner then
+        if type(env[owner]) == "table" and type(env[owner][fname]) == "function" then
+          pcall(env.hooksecurefunc, env[owner], fname, function() pcall(onConfirmed, key) end)
+        end
+      elseif type(env[name]) == "function" then
         pcall(env.hooksecurefunc, name, function() pcall(onConfirmed, key) end)
       end
     end

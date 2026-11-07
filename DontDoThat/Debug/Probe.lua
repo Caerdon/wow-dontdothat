@@ -111,7 +111,18 @@ Probe.Candidates = {
   { group = "Auction house", names = { "C_AuctionHouse.*", "PlaceAuctionBid", "GetAuctionItemInfo",
       "GetAuctionItemLink", "GetSelectedAuctionItem", "AuctionFrame", "AuctionHouseFrame" } },
   { group = "Items", names = { "GetItemInfoInstant", "C_Item.*" } },
-  { group = "Tooltips", names = { "GameTooltip", "TooltipDataProcessor" } },
+  { group = "Tooltips", names = { "GameTooltip", "TooltipDataProcessor", "TooltipDataProcessor.AddTooltipPostCall",
+      "GameTooltip.SetMerchantItem", "GameTooltip.SetTrainerService", "GameTooltip.GetSpell", "GameTooltip.SetInboxItem" } },
+  { group = "Vendor", names = { "BuyMerchantItem", "GetMerchantItemInfo", "GetMerchantItemLink", "GetMerchantNumItems",
+      "GetMerchantItemCostInfo", "C_MerchantFrame.*", "MerchantFrame" } },
+  { group = "Bank", names = { "PurchaseSlot", "GetBankSlotCost", "GetNumBankSlots", "C_Bank.*", "BankFrame" } },
+  { group = "Stable", names = { "BuyStableSlot", "GetNextStableSlotCost", "GetNumStableSlots", "C_StableInfo.*" } },
+  { group = "Mail", names = { "TakeInboxItem", "AutoLootMailItem", "GetInboxItem", "GetInboxItemLink",
+      "GetInboxNumItems", "C_Mail.*" } },
+  { group = "Pet reset", names = { "ConfirmPetUnlearn", "GetPetUnlearnCost", "ResetPetTalents" } },
+  { group = "Skills and professions", names = { "GetNumSkillLines", "GetSkillLineInfo", "C_SkillInfo.*",
+      "GetProfessions", "GetProfessionInfo", "C_TradeSkillUI.*", "IsSpellKnown", "GetMoney" } },
+  { group = "Popups", names = { "StaticPopup_Show", "StaticPopupDialogs", "hooksecurefunc", "C_Timer.After" } },
   { group = "Sounds", names = { "PlaySound", "PlaySoundFile" } },
   { group = "Addons", names = { "C_AddOns.*", "GetAddOnMetadata", "LibStub", "issecretvalue" } },
 }
@@ -178,6 +189,30 @@ Probe.Probes = {
   { name = "GetNextTalentLevel()", fn = function(env) return callIfPresent(env, "GetNextTalentLevel") end },
   { name = "C_ClassTalents.GetActiveConfigID()", fn = function(env) return callIfPresent(env, "C_ClassTalents.GetActiveConfigID") end },
   { name = "C_SpecializationInfo.GetSpecialization()", fn = function(env) return callIfPresent(env, "C_SpecializationInfo.GetSpecialization") end },
+  { name = "GetMoney()", fn = function(env) return callIfPresent(env, "GetMoney") end },
+  { name = "GetNumBankSlots()", fn = function(env) return callIfPresent(env, "GetNumBankSlots") end },
+  { name = "GetBankSlotCost(1)", fn = function(env) return callIfPresent(env, "GetBankSlotCost", 1) end },
+  { name = "GetNumStableSlots()", fn = function(env) return callIfPresent(env, "GetNumStableSlots") end },
+  { name = "GetNextStableSlotCost()", fn = function(env) return callIfPresent(env, "GetNextStableSlotCost") end },
+  { name = "GetInboxNumItems()", fn = function(env) return callIfPresent(env, "GetInboxNumItems") end },
+  { name = "GetInboxItemLink(1,1)", fn = function(env) return callIfPresent(env, "GetInboxItemLink", 1, 1) end },
+  { name = "GetMerchantNumItems()", fn = function(env) return callIfPresent(env, "GetMerchantNumItems") end },
+  { name = "GetMerchantItemInfo(1)", fn = function(env) return callIfPresent(env, "GetMerchantItemInfo", 1) end },
+  { name = "GetMerchantItemLink(1)", fn = function(env) return callIfPresent(env, "GetMerchantItemLink", 1) end },
+  { name = "C_MerchantFrame.GetItemInfo(1)", fn = function(env) return callIfPresent(env, "C_MerchantFrame.GetItemInfo", 1) end },
+  { name = "GetNumSkillLines()", fn = function(env) return callIfPresent(env, "GetNumSkillLines") end },
+  { name = "C_SkillInfo.GetNumSkillLines()", fn = function(env) return callIfPresent(env, "C_SkillInfo.GetNumSkillLines") end },
+  { name = "C_SkillInfo.GetSkillLineInfo(1)", fn = function(env)
+      local info = callIfPresent(env, "C_SkillInfo.GetSkillLineInfo", 1)
+      if type(info) ~= "table" then return info end
+      local keys = {}
+      for k, v in pairs(info) do keys[#keys + 1] = tostring(k) .. "=" .. tostring(v) end
+      table.sort(keys)
+      return table.concat(keys, " ")
+    end },
+  { name = "GetProfessions()", fn = function(env) return callIfPresent(env, "GetProfessions") end },
+  { name = "C_SpellBook.IsSpellKnown(33388 apprentice riding)", fn = function(env)
+      return callIfPresent(env, "C_SpellBook.IsSpellKnown", 33388) end },
   { name = "C_AddOns.GetAddOnMetadata(Interface)", fn = function(env)
       return callIfPresent(env, "C_AddOns.GetAddOnMetadata", addonName, "Interface") end },
 }
@@ -320,6 +355,84 @@ function Probe.TalentPoints(env)
     end
   end
   return { ok = true, trees = trees }
+end
+
+-- Forever has no GetNumTalentTabs; its talents are retail-style C_Traits trees. Walks the active config and lists
+-- every node with points (node, rank, entry, spell ID), so the real shapes and spell IDs can be read from a report.
+-- Every call is pcall-guarded; the output is capped.
+local TRAIT_LINE_CAP = 80
+
+function Probe.TraitTalents(env)
+  env = env or _G
+  local CT, T = env.C_ClassTalents, env.C_Traits
+  if type(CT) ~= "table" or type(T) ~= "table" then return { "  unavailable: no C_ClassTalents / C_Traits" } end
+  local function try(label, f, ...)
+    if type(f) ~= "function" then return nil, label .. ": missing" end
+    local ok, a = pcall(f, ...)
+    if not ok then return nil, label .. ": error " .. tostring(a) end
+    return a
+  end
+  local configID, why = try("GetActiveConfigID", CT.GetActiveConfigID)
+  if not configID then return { "  unavailable: " .. tostring(why or "GetActiveConfigID returned nil") } end
+  local cfg, cwhy = try("GetConfigInfo", T.GetConfigInfo, configID)
+  if type(cfg) ~= "table" or type(cfg.treeIDs) ~= "table" then
+    return { ("  configID %s; %s"):format(tostring(configID), tostring(cwhy or "GetConfigInfo has no treeIDs")) }
+  end
+  local lines = { ("  configID %s, %d tree(s)"):format(tostring(configID), #cfg.treeIDs) }
+  local function add(s) if #lines <= TRAIT_LINE_CAP then lines[#lines + 1] = s end end
+  for _, treeID in ipairs(cfg.treeIDs) do
+    local nodes, nwhy = try("GetTreeNodes", T.GetTreeNodes, treeID)
+    if type(nodes) ~= "table" then
+      add(("  tree %s: %s"):format(tostring(treeID), tostring(nwhy)))
+    else
+      local spent = 0
+      add(("  tree %s: %d nodes"):format(tostring(treeID), #nodes))
+      for _, nodeID in ipairs(nodes) do
+        local node = try("GetNodeInfo", T.GetNodeInfo, configID, nodeID)
+        local rank = type(node) == "table" and node.currentRank
+        if type(rank) == "number" and rank > 0 then
+          spent = spent + rank
+          local entryID = node.activeEntry and node.activeEntry.entryID
+          local entry = entryID and try("GetEntryInfo", T.GetEntryInfo, configID, entryID)
+          local def = type(entry) == "table" and entry.definitionID and try("GetDefinitionInfo", T.GetDefinitionInfo, entry.definitionID)
+          add(("    node %s rank %s/%s entry %s spell %s"):format(tostring(nodeID), tostring(rank),
+            tostring(node.maxRanks), tostring(entryID), tostring(type(def) == "table" and def.spellID)))
+        end
+      end
+      add(("  tree %s: %d points spent"):format(tostring(treeID), spent))
+    end
+  end
+  return lines
+end
+
+-- Dialog names the guards look for, and any other popup in the client that sounds related. A guard whose name is
+-- missing here never fires.
+local WANTED_POPUPS = { "CONFIRM_BUY_BANK_SLOT", "CONFIRM_BUY_STABLE_SLOT", "COD_CONFIRMATION",
+  "COD_CONFIRMATION_AUTO_LOOT", "CONFIRM_TALENT_WIPE", "CONFIRM_PET_UNLEARN" }
+local POPUP_WORDS = { "BANK", "STABLE", "COD", "WIPE", "UNLEARN", "TALENT", "RESET", "PET", "RESPEC", "MAIL" }
+
+function Probe.Popups(env)
+  env = env or _G
+  local dialogs = env.StaticPopupDialogs
+  if type(dialogs) ~= "table" then return { "  unavailable: no StaticPopupDialogs" } end
+  local lines, extra = {}, {}
+  for _, name in ipairs(WANTED_POPUPS) do
+    lines[#lines + 1] = ("  %s: %s"):format(name, dialogs[name] ~= nil and "present" or "MISSING")
+  end
+  local wanted = {}
+  for _, name in ipairs(WANTED_POPUPS) do wanted[name] = true end
+  pcall(function()
+    for key in pairs(dialogs) do
+      if type(key) == "string" and not wanted[key] then
+        for _, word in ipairs(POPUP_WORDS) do
+          if key:find(word, 1, true) then extra[#extra + 1] = key; break end
+        end
+      end
+    end
+  end)
+  table.sort(extra)
+  lines[#lines + 1] = "  other related popups: " .. (#extra > 0 and table.concat(extra, " ") or "none")
+  return lines
 end
 
 ---------------------------------------------------------------------------
@@ -830,6 +943,8 @@ function Probe.Run(env, saved)
     end
     return lines
   end)
+  guarded("Talent traits", function() return Probe.TraitTalents(env) end)
+  guarded("Popups", function() return Probe.Popups(env) end)
   guarded("Skill lines", function() return Probe.SkillLines(env) end)
   guarded("Spell identity", function() return Probe.SpellIdentity(env) end)
   guarded("Spell data check", function() return Probe.SpellDataCheck(env) end)

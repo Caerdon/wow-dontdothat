@@ -28,9 +28,23 @@ function Merchant.Total(price, bundle, qty)
   return math.floor(price * qty / bundle + 0.5)
 end
 
+-- name, price, bundle, extendedCost for a vendor row. The legacy GetMerchantItemInfo lost its fallback in 12.0.0;
+-- C_MerchantFrame.GetItemInfo(index) returns a table instead (stackCount, hasExtendedCost). Docs only, not yet seen on Forever.
+local function rowInfo(env, index)
+  if type(env.GetMerchantItemInfo) == "function" then
+    local name, _, price, bundle, _, _, extendedCost = env.GetMerchantItemInfo(index)
+    return name, price, bundle, extendedCost
+  end
+  local api = env.C_MerchantFrame
+  if type(api) == "table" and type(api.GetItemInfo) == "function" then
+    local info = api.GetItemInfo(index)
+    if type(info) == "table" then return info.name, info.price, info.stackCount, info.hasExtendedCost end
+  end
+end
+
 local function itemAt(env, index)
-  if type(env.GetMerchantItemInfo) ~= "function" or type(env.GetMerchantItemLink) ~= "function" then return nil end
-  local name, _, price, bundle, _, _, extendedCost = env.GetMerchantItemInfo(index)
+  if type(env.GetMerchantItemLink) ~= "function" then return nil end
+  local name, price, bundle, extendedCost = rowInfo(env, index)
   if not name or type(price) ~= "number" or extendedCost then return nil end
   return name, env.GetMerchantItemLink(index), price, bundle
 end

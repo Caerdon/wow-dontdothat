@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.6
+
+- Vendor purchases are checked again in the Forever client, which dropped the call the addon read prices from. Talents are read from Forever's new talent trees, professions from its new skill list, and stable slot purchases go through its new stable calls. The pet trainer's reset is now asked about as a pet reset, not a talent reset. `/ddt export` reports more of the client's calls to help find what else differs.
+
 ## 0.10.5
 
 - Auction house purchases are now checked in the Forever client. Its retail-style auction house (single items and stackable goods) was never hooked, so flagged items such as bags sailed through without a question. Classic Era is unchanged.
