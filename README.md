@@ -1,6 +1,6 @@
 # Don't Do That
 
-A World of Warcraft Classic addon that warns you off gold you don't need to spend yet, so you can afford your **level 40** and **level 60** mounts. Works on **Classic Era** and **WoW Forever**, for all nine classes.
+A World of Warcraft addon for WoW Forever and Classic Era that safeguards your gold to ensure you can save up for your mount. It warns you off gold you don't need to spend yet, so you can afford your **level 40** and **level 60** mounts, for all nine classes.
 
 ## What it does
 
@@ -30,6 +30,7 @@ Type **`/ddt`** to open the settings (also under Options > AddOns). Pick how fir
 ## Known limits
 
 - Spell advice follows expert guides. You can switch off any spell or kind of advice.
+- A hunter's beast training (pet abilities paid in training points) is never marked or questioned, only the Pet Trainer NPC is.
 - Talent choices aren't judged; only the cost of resetting is warned about.
 - The addon's own text is English. Spell names follow your game's language, and other languages can be added; see [docs/localization.md](docs/localization.md).
 

@@ -27,6 +27,7 @@ Levels needed: most steps work at **level 10**. Steps marked (L12) need level 12
 - [ ] Colors: red for Distracting Shot, Aspect of the Beast, Wyvern Sting, Volley; gold for tracking spells (Track Humanoids …), Scare Beast, Beast Lore, Scorpid/Viper Sting.
 - [ ] Scroll the list: the (i) marks stay on the right rows.
 - [ ] Open the **Pet Trainer**: the five resistances are marked gold; Great Stamina and Natural Armor ranks 5/7/9 and 6/8/10 are marked red.
+- [ ] Hunter **beast training** (the pet's own window, paid in training points): no marks, no prompts, and ranks that cost points train normally. The log shows no "BuyTrainerService wrapped" line while it is open.
 - [ ] Back in settings, **Rules** now shows real spell icons for what you just saw.
 
 ## 3. Warning and question
@@ -70,7 +71,7 @@ Levels needed: most steps work at **level 10**. Steps marked (L12) need level 12
 ## 7. Safety checks
 - [ ] With every switch on, open and close the trainer a dozen times, scroll, and click around: no error popups.
 - [ ] Open the **talent window**, **spellbook** and **bags** while the addon is on: nothing changes or breaks.
-- [ ] `/ddt export`, copy it, and look for lines like "overlay: ClassTrainerFrame_Update hooked", "confirm: Train button click wrapped" and "filter: menu entry registered". Send me the report if any step above failed.
+- [ ] `/ddt export`, copy it, and look for lines like "overlay: ClassTrainerFrame_Update hooked", "confirm: Train button click wrapped" (Classic Era) or "confirm: BuyTrainerService wrapped (Forever window)" and "filter: menu entry registered". Send me the report if any step above failed.
 
 ## 8. Spell data check
 - [ ] `/ddt export`, then find the **Spell data check** section. It should say "bundled spell tables: build 1.60.1.70532, 157 spells for HUNTER" and "spellbook says N known" with N a believable number for your character (not 0 unless you know nothing).
