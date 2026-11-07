@@ -8,10 +8,10 @@ Copy-ready text and field values for the CurseForge and Wago projects. The proje
 |---|---|
 | Project name | Don't Do That |
 | Slug / URL name | dont-do-that (use whatever is free) |
-| Summary (one line, keep under 250 characters) | Warns you off gold you don't need to spend yet so you can afford your level 40 and level 60 mounts. Marks skippable trainer spells and asks before wasteful purchases. All nine classes. Classic Era and Forever. |
+| Summary (one line, keep under 250 characters) | Safeguards your gold so you can save up for your mount. Marks skippable trainer spells and asks before wasteful purchases. All nine classes. Forever and Classic Era. |
 | Main category | Auction & Economy |
 | Additional categories | Quests & Leveling, Miscellaneous |
-| Game versions | Classic Era (1.15.x) and WoW Forever (1.60.x). The packager reads `## Interface` from each TOC: 11509 for `DontDoThat_Vanilla.toc`, 16001 for `DontDoThat_Camelot.toc`. |
+| Game versions | CurseForge calls Classic Era **Classic**: tick Classic (1.15.x) and Forever (1.60.x). The packager reads `## Interface` from each TOC: 11509 for `DontDoThat_Vanilla.toc`, 16001 for `DontDoThat_Camelot.toc`. |
 | License | MIT |
 | Source code URL | `https://github.com/NullStatBonus/wow-dontdothat` |
 | Issues URL | `https://github.com/NullStatBonus/wow-dontdothat/issues` |
@@ -27,7 +27,7 @@ Paste this into the description box (CurseForge and Wago both take Markdown or H
 
 ---
 
-**Don't Do That** warns you off gold you don't need to spend yet, so you can afford your **level 40** and **level 60** mounts. It works on **WoW Forever** and **Classic Era**, for all nine classes.
+**Don't Do That** is a World of Warcraft addon for WoW Forever and Classic Era that safeguards your gold to ensure you can save up for your mount. It warns you off gold you don't need to spend yet, so you can afford your **level 40** and **level 60** mounts, for all nine classes.
 
 - **Marks spells you can skip** in the trainer window. A colored **(i)** appears next to each one; hover it for the reason and the cost.
   - Red: *Save your gold*. You won't need it until later.
