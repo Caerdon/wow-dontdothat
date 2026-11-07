@@ -28,35 +28,40 @@ local KINDS = {
     popups = { "CONFIRM_TALENT_WIPE" }, confirmFn = "ConfirmTalentWipe", event = "CONFIRM_TALENT_WIPE", label = L["Talent reset"],
     title = L["Reset your talents?"], ask = L["Reset anyway?"], rises = true,
     advice = L["Resetting costs gold, and more each time you do it. Only do it if you really need to."],
+    warnOnly = true, -- resets only warn: the game's dialog stays up with our note, a sound and a banner
     avoided = function(state) ns.Ledger.RecordRespecAvoided(state) end,
     performed = function(state, cost) ns.Ledger.RecordRespecPerformed(state, nil, cost) end,
-    -- What the game's own Cancel does for this dialog.
-    afterCancel = function(env)
-      if type(env.PlayerTalentFrame) == "table" and type(env.HideUIPanel) == "function" then
-        pcall(env.HideUIPanel, env.PlayerTalentFrame)
-      end
-    end,
   },
   pet = {
     popups = { "CONFIRM_PET_UNLEARN" }, confirmFn = "ConfirmPetUnlearn", event = "CONFIRM_PET_UNLEARN", label = L["Pet skill reset"],
     -- Forever has no pet-unlearn dialog or call: the pet trainer opens CONFIRM_TALENT_WIPE with pet text, and its Accept
     -- runs ConfirmTalentWipe (seen in the export). onPopupShown tells the two apart by the dialog text.
+    warnOnly = true,
     done = { "ConfirmPetUnlearn", "ConfirmTalentWipe" },
-    accept = function(env, _, which)
-      if type(env.ConfirmPetUnlearn) == "function" then env.ConfirmPetUnlearn()
-      elseif which == "CONFIRM_TALENT_WIPE" and type(env.ConfirmTalentWipe) == "function" then env.ConfirmTalentWipe() end
-    end,
     title = L["Take every skill off your pet?"], ask = L["Reset anyway?"], rises = true,
     advice = L["Taking skills off your pet costs gold, and more each time. Only do it if you really need to."],
     avoided = function(state) ns.Ledger.RecordPetResetAvoided(state) end,
     performed = function(state, cost) ns.Ledger.RecordPetResetPerformed(state, nil, cost) end,
   },
   bank = {
-    guard = "bank", popups = { "CONFIRM_BUY_BANK_SLOT" }, done = { "PurchaseSlot" }, label = L["Bank slot"],
+    -- Forever sells bank tabs (CONFIRM_BUY_BANK_TAB, data { bankType }) and there is no PurchaseSlot. The client blocks
+    -- our call to C_Bank.PurchaseBankTab ("blocked: UNKNOWN()" in the export), so there our question cannot buy; the
+    -- game's dialog stays up with our note on it and a sound and banner (usable below), and the game's own Accept buys.
+    guard = "bank", popups = { "CONFIRM_BUY_BANK_SLOT", "CONFIRM_BUY_BANK_TAB" },
+    done = { "PurchaseSlot", "C_Bank.PurchaseBankTab" }, label = L["Bank slot"],
     title = L["Buy another bank slot?"], ask = L["Buy anyway?"], rises = true,
     advice = L["Bank slots cost gold, and more each time. Only buy one if you really need the space."],
-    price = function(env) return type(env.BankFrame) == "table" and env.BankFrame.nextSlotCost or nil end,
-    accept = function(env) if type(env.PurchaseSlot) == "function" then env.PurchaseSlot() end end,
+    price = function(env, data)
+      local bank = env.C_Bank
+      if type(bank) == "table" and type(bank.FetchNextPurchasableBankTabData) == "function" and type(data) == "table"
+        and data.bankType ~= nil then
+        local ok, info = pcall(bank.FetchNextPurchasableBankTabData, data.bankType)
+        if ok and type(info) == "table" and type(info.tabCost) == "number" then return info.tabCost end
+      end
+      return type(env.BankFrame) == "table" and env.BankFrame.nextSlotCost or nil
+    end,
+    usable = function(env) return type(env.PurchaseSlot) == "function" end,
+    accept = function(env) env.PurchaseSlot() end,
     avoided = function(state, cost) ns.Ledger.RecordItemAvoided(state, cost) end,
     performed = function(state, cost) ns.Ledger.RecordItemPerformed(state, cost) end,
   },
@@ -84,16 +89,7 @@ local KINDS = {
     title = L["Pay for this mail?"], ask = L["Pay anyway?"], rises = false,
     advice = L["Paying a COD costs gold. Only pay it if you really want what's in the mail."],
     price = function(env) return type(env.OpenMailFrame) == "table" and env.OpenMailFrame.cod or nil end,
-    -- Read when Accept is pressed, as the game does; skip quietly if the mail window is gone.
-    accept = function(env, data, which)
-      if which == "COD_CONFIRMATION_AUTO_LOOT" then
-        if type(env.AutoLootMailItem) == "function" and data ~= nil then env.AutoLootMailItem(data) end
-        return
-      end
-      if type(env.TakeInboxItem) == "function" and type(env.InboxFrame) == "table" and type(env.OpenMailFrame) == "table" then
-        env.TakeInboxItem(env.InboxFrame.openMailID, env.OpenMailFrame.lastTakeAttachment)
-      end
-    end,
+    warnOnly = true,
     avoided = function(state, cost) ns.Ledger.RecordItemAvoided(state, cost) end,
     performed = function(state, cost) ns.Ledger.RecordItemPerformed(state, cost) end,
   },
@@ -106,6 +102,7 @@ end
 
 local pending, shownFrame, lastQuote, seen = {}, {}, {}, {}
 local disabledReason
+local accepting -- true while our Accept runs the game's call; a block then is ours (the client names it UNKNOWN())
 
 function Resets.Reset() pending, shownFrame, lastQuote, seen, disabledReason = {}, {}, {}, {}, nil end
 function Resets.DisabledReason() return disabledReason end
@@ -192,10 +189,10 @@ local function countSkippedWhenClosed(kind, key, frame)
   end)
 end
 
-local function warn(key, kind)
+local function warn(key, kind, ownDialogUp)
   if not (ns.Alert and ns.TrainerConfirm) then return end
   local settings = ns.TrainerConfirm.AlertSettings()
-  settings.alertBanner = false -- there is always a dialog on screen with this
+  if ownDialogUp then settings.alertBanner = false end -- our question is on screen, no banner needed
   pcall(ns.Alert.Trigger, { tier = "defer", name = kind.label, cost = lastQuote[key], reason = kind.advice },
     "reset:" .. key, settings)
 end
@@ -210,15 +207,18 @@ local function present(env, key, kind, which, data)
   end
   if key == "pet" and not lastQuote.pet then lastQuote.pet = lastQuote.talent end -- Forever sends the talent-wipe event
   seen[key] = { dialog = which, price = lastQuote[key] or "unknown" }
-  warn(key, kind)
+  local useOwn = ownDialog() and not kind.warnOnly and (not kind.usable or kind.usable(env, data))
+  warn(key, kind, useOwn)
 
-  if ownDialog() then
+  if useOwn then
     local shown = ns.ConfirmPopup.Show(question(kind, lastQuote[key]),
       function()
         if ns.Log then ns.Log.Add("reset: %s accepted", kind.label) end
         local ok, err
         if kind.accept then
+          accepting = true
           ok, err = pcall(kind.accept, env, data, which)
+          accepting = false
         else
           local fn = env[kind.confirmFn]
           if type(fn) ~= "function" then return end
@@ -268,6 +268,12 @@ local function onPopupShown(env, which, data)
   local kind = key and KINDS[key]
   if not kind or not active(kind) then return end
   if ns.Log then ns.Log.Add("reset: the game's %s dialog opened", kind.label) end
+  if ns.Log and type(data) == "table" then -- what the game passed, so a new client's dialog shape can be read from a report
+    local keys = {}
+    for k, v in pairs(data) do keys[#keys + 1] = tostring(k) .. "=" .. tostring(v) end
+    table.sort(keys)
+    ns.Log.Add("reset: %s data: %s", which, table.concat(keys, " "))
+  end
   -- The price arrives by event (or is read from the game) around the same moment; give it a frame so our text
   -- can include it.
   if type(env.C_Timer) == "table" and type(env.C_Timer.After) == "function" then
@@ -311,6 +317,7 @@ function Resets.Enable(eventTarget, env)
     for _, name in ipairs(fns) do
       watched[name] = true
       local owner, fname = name:match("^(.-)%.(.+)$") -- "C_StableInfo.BuyStableSlot"
+      if fname then watched[fname] = true end -- the client may name the blocked call without its table
       if owner then
         if type(env[owner]) == "table" and type(env[owner][fname]) == "function" then
           pcall(env.hooksecurefunc, env[owner], fname, function() pcall(onConfirmed, key) end)
@@ -328,7 +335,7 @@ function Resets.Enable(eventTarget, env)
   end
   for _, event in ipairs({ "ADDON_ACTION_FORBIDDEN", "ADDON_ACTION_BLOCKED" }) do
     pcall(eventTarget.RegisterEvent, eventTarget, event, function(_, who, func)
-      if who == addonName and watched[func] then refuse(env, func) end
+      if who == addonName and (accepting or watched[func]) then refuse(env, func) end
     end)
   end
   return true

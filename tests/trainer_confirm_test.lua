@@ -163,6 +163,14 @@ test("if the client blocks our addon, prompting switches off and purchases flow"
   eq(#rec.asks, 0)
 end)
 
+test("a block from another guard (UNKNOWN() with no trainer purchase running) leaves trainer prompts on", function()
+  local ns = setup({ verdicts = { [5] = DEFER } })
+  local handlers = {}
+  ns.TrainerConfirm.Watch({ RegisterEvent = function(_, event, fn) handlers[event] = fn end })
+  handlers.ADDON_ACTION_FORBIDDEN("event", "DontDoThat", "UNKNOWN()")
+  falsy(ns.TrainerConfirm.DisabledReason())
+end)
+
 test("on the Forever window the button is only hooked, never replaced", function()
   local ns, env, button, rec = setup({ verdicts = { [5] = DEFER } })
   env.ClassTrainerFrame.ScrollBox = {}
@@ -182,4 +190,38 @@ test("when the client refuses us the button gets its own handler back", function
   truthy(button.script ~= original)
   ns.TrainerConfirm.Disable("blocked: x")
   truthy(button.script == original)
+end)
+
+test("on the Forever window BuyTrainerService is wrapped: flagged asks, others pass", function()
+  local ns, env, button, rec = setup({ verdicts = { [5] = DEFER } })
+  env.ClassTrainerFrame.ScrollBox = {}
+  local original = button.script
+  env.BuyTrainerService = function(i) rec.bought[#rec.bought + 1] = i end
+  truthy(ns.TrainerConfirm.Install(env))
+  truthy(button.script == original, "click handler untouched")
+  env.BuyTrainerService(3)
+  eq(rec.bought, { 3 }, "an unflagged service goes straight through")
+  env.BuyTrainerService(5)
+  eq(#rec.asks, 1)
+  eq(#rec.bought, 1, "held until answered")
+  rec.asks[1].confirm()
+  eq(rec.bought, { 3, 5 })
+  env.BuyTrainerService(5)
+  rec.asks[2].cancel()
+  eq(#rec.bought, 2, "declined")
+end)
+
+test("a block while the confirmed purchase runs switches prompting off and restores BuyTrainerService", function()
+  local ns, env, button, rec = setup({ verdicts = { [5] = DEFER } })
+  env.ClassTrainerFrame.ScrollBox = {}
+  local handlers = {}
+  local buy = function() handlers.ADDON_ACTION_FORBIDDEN("event", "DontDoThat", "UNKNOWN()") end
+  env.BuyTrainerService = buy
+  ns.TrainerConfirm.Install(env)
+  ns.TrainerConfirm.Watch({ RegisterEvent = function(_, event, fn) handlers[event] = fn end })
+  env.BuyTrainerService(5)
+  falsy(ns.TrainerConfirm.DisabledReason(), "nothing has run yet")
+  rec.asks[1].confirm()
+  truthy(ns.TrainerConfirm.DisabledReason())
+  truthy(env.BuyTrainerService == buy, "game's own call restored")
 end)

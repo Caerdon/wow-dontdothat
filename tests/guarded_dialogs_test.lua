@@ -57,18 +57,16 @@ test("stable slot: accept buys it and counts as spent", function()
   eq(ns.db.char.ledger.itemsAvoided, 0)
 end)
 
-test("COD: accept reads the mail frame when pressed; auto-loot variant uses its data", function()
+test("COD: warn only, the game's dialog is annotated and its price is noted", function()
   local ns, env, shown, calls, popup = setup()
+  local text = "Pay 7s for this mail?"
+  env.StaticPopup1 = { which = "COD_CONFIRMATION",
+    text = { GetText = function() return text end, SetText = function(_, v) text = v end } }
   popup("COD_CONFIRMATION")
-  truthy(shown.text:find("7", 1, true))
-  falsy(shown.text:find("goes up each time", 1, true), "COD price does not rise")
-  env.OpenMailFrame.lastTakeAttachment = 3
-  shown.yes()
-  eq(calls[#calls], "TakeInboxItem:5:3")
-  eq(ns.db.char.ledger.spentAgainst, 700)
-  popup("COD_CONFIRMATION_AUTO_LOOT", 4)
-  shown.yes()
-  eq(calls[#calls], "AutoLootMailItem:4")
+  eq(shown.text, nil, "no question of ours")
+  truthy(text:find("Paying a COD costs gold", 1, true), text)
+  eq(ns.Resets.Status().cod.lastSeen.price, 700)
+  eq(#calls, 0)
 end)
 
 test("taking ordinary mail records nothing", function()
@@ -88,8 +86,8 @@ end)
 
 test("the minimum price does not apply to these", function()
   local ns, env, shown, calls, popup = setup({ enabled = true, warnings = true, blockingConfirmations = true, minPrice = 999999 })
-  env.OpenMailFrame.cod = 5
-  popup("COD_CONFIRMATION")
+  env.GetNextStableSlotCost = function() return 5 end
+  popup("CONFIRM_BUY_STABLE_SLOT")
   truthy(shown.text)
 end)
 
@@ -100,24 +98,11 @@ test("export status lists each kind and what it last saw", function()
   eq(st.bank.on, true); eq(st.bank.lastSeen.price, 25000); eq(st.stable.lastSeen, "not seen this session")
 end)
 
-test("Forever pet trainer: the talent-wipe dialog with pet text is asked about as a pet reset and accepted through ConfirmTalentWipe", function()
-  local ns, env, shown, calls, popup = setup()
-  env.ConfirmTalentWipe = function() calls[#calls + 1] = "ConfirmTalentWipe" end
-  env.StaticPopup1 = { which = "CONFIRM_TALENT_WIPE",
-    text = { GetText = function() return "Do you want to unlearn all of your pet's skills?" end } }
-  popup("CONFIRM_TALENT_WIPE")
-  truthy(shown.text:find("Take every skill off your pet?", 1, true), shown.text)
-  shown.yes()
-  eq(calls[#calls], "ConfirmTalentWipe")
-end)
-
-test("Forever talent reset keeps the talent question", function()
-  local ns, env, shown, calls, popup = setup()
-  env.StaticPopup1 = { which = "CONFIRM_TALENT_WIPE",
-    text = { GetText = function() return "Are you sure you want to reset your talents?" end } }
-  popup("CONFIRM_TALENT_WIPE")
-  truthy(shown.text:find("Reset your talents?", 1, true), shown.text)
-end)
+local function dialogText(which, body)
+  local text = body
+  return { which = which, text = { GetText = function() return text end, SetText = function(_, v) text = v end } },
+    function() return text end
+end
 
 test("stable slot: accept falls back to C_StableInfo when the globals are gone", function()
   local ns, env, shown, calls, popup = setup()
@@ -128,4 +113,33 @@ test("stable slot: accept falls back to C_StableInfo when the globals are gone",
   truthy(shown.text:find("5g", 1, true), shown.text)
   shown.yes()
   eq(calls[#calls], "C_StableInfo.BuyStableSlot")
+end)
+
+test("Forever bank tab: our question is not used, the game's dialog is annotated and nothing is bought by us", function()
+  local ns, env, shown, calls, popup = setup()
+  env.PurchaseSlot, env.BankFrame = nil, nil
+  env.C_Bank = { FetchNextPurchasableBankTabData = function() return { tabCost = 100000 } end,
+    PurchaseBankTab = function(t) calls[#calls + 1] = "PurchaseBankTab:" .. t end }
+  local text = "Purchase a bank tab?"
+  env.StaticPopup1 = { which = "CONFIRM_BUY_BANK_TAB",
+    text = { GetText = function() return text end, SetText = function(_, v) text = v end } }
+  popup("CONFIRM_BUY_BANK_TAB", { bankType = 0 })
+  eq(shown.text, nil, "no question of ours")
+  truthy(text:find("Bank slots cost gold", 1, true), text)
+  eq(#calls, 0)
+end)
+
+test("talent reset: warn only, with the pet trainer's dialog told apart by its text", function()
+  local ns, env, shown, calls, popup = setup()
+  local frame, current = dialogText("CONFIRM_TALENT_WIPE", "Are you sure you want to reset your talents?")
+  env.StaticPopup1 = frame
+  popup("CONFIRM_TALENT_WIPE")
+  eq(shown.text, nil)
+  truthy(current():find("Resetting costs gold", 1, true), current())
+  local pframe, pcurrent = dialogText("CONFIRM_TALENT_WIPE", "Do you want to unlearn all of your pet's skills?")
+  env.StaticPopup1 = pframe
+  popup("CONFIRM_TALENT_WIPE")
+  eq(shown.text, nil)
+  truthy(pcurrent():find("Taking skills off your pet costs gold", 1, true), pcurrent())
+  eq(#calls, 0)
 end)

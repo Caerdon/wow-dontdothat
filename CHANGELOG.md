@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.7
+
+- The Forever trainer asks "Buy anyway?" again before a flagged ability. It now wraps the game's own purchase call instead of replacing the Train button, which the client had refused.
+- Talent resets, pet skill resets and COD mail only warn now: the game's own dialog stays up with a note, a sound and a banner. Bank tabs on Forever work the same way.
+- A blocked action from one guard no longer switches off the trainer's questions, and a block now switches off the guard whose purchase it was.
+
 ## 0.10.6
 
 - Vendor purchases are checked again in the Forever client, which dropped the call the addon read prices from. Talents are read from Forever's new talent trees, professions from its new skill list, and stable slot purchases go through its new stable calls. The pet trainer's reset is now asked about as a pet reset, not a talent reset. `/ddt export` reports more of the client's calls to help find what else differs.
