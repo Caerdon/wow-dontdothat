@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.8
+
+- Fixed beast training (a hunter's pet abilities, paid in training points) refusing ranks that cost points on Forever. The addon now leaves that window alone: no wrapped purchase, no marks, no prompts. A Pet Trainer NPC still gets the full treatment.
+
 ## 0.10.7
 
 - The Forever trainer asks "Buy anyway?" again before a flagged ability. It now wraps the game's own purchase call instead of replacing the Train button, which the client had refused.

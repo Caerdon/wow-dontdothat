@@ -27,6 +27,7 @@ local function fakeEnv(opts)
   local env = {}
   env.UnitClass = function() return "Hunter", opts.class or "HUNTER", 3 end
   env.UnitLevel = function() return opts.level or 10 end
+  env.UnitName = function() if not opts.noNpc then return "Hunter Trainer" end end
   env.GetNumTrainerServices = function() return #ROWS end
   env.GetTrainerServiceInfo = function(i) local r = ROWS[i]; return r[1], r[2], r[3], 1 end
   env.GetTrainerServiceCost = function(i) return ROWS[i][4] end
@@ -76,6 +77,15 @@ end)
 test("context is nil for an unsupported class", function()
   eq(ns.Context.Profile(fakeEnv({ class = "MAGE" })), nil)
   eq(ns.Context.Profile({}), nil)
+end)
+
+test("beast training (no npc unit, or the npc is the pet) gets no verdicts at all", function()
+  eq(ns.TrainerOverlay.Compute(fakeEnv({ noNpc = true })), nil)
+  local e = fakeEnv()
+  e.UnitName = function() return "Bjorn" end
+  e.UnitGUID = function() return "Pet-0-1" end
+  eq(ns.TrainerOverlay.Compute(e), nil)
+  eq(ns.Adapter.IsBeastTraining(fakeEnv()), false)
 end)
 
 test("compute flags the rows the rules defer and leaves the rest", function()
