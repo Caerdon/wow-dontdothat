@@ -170,6 +170,22 @@ test("adapter lists the talents with points in them, and nil when the client can
   eq(ns.Adapter.ReadActiveTalents({}), nil)
 end)
 
+test("adapter reads talents from C_Traits when the client has no talent tabs", function()
+  local env = {
+    UnitClass = function() return "Hunter", "HUNTER", 3 end,
+    C_ClassTalents = { GetActiveConfigID = function() return 1 end },
+    C_Traits = {
+      GetConfigInfo = function() return { treeIDs = { 9 } } end,
+      GetTreeNodes = function() return { 1, 2 } end,
+      GetNodeInfo = function(_, id) return { currentRank = id == 1 and 1 or 0, activeEntry = { entryID = id } } end,
+      GetEntryInfo = function(_, id) return { definitionID = id } end,
+      GetDefinitionInfo = function(id) return { spellID = id == 1 and 19434 or 19503 } end,
+    },
+  }
+  local active = ns.Adapter.ReadActiveTalents(env)
+  eq(active, { [H.fid(ns, "HUNTER", "Aimed Shot")] = true })
+end)
+
 -- The same trainer in a client that shows every spell under another name: nothing may depend on English.
 local function scrambledEnv()
   local env = fakeEnv()

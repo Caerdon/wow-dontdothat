@@ -99,3 +99,33 @@ test("export status lists each kind and what it last saw", function()
   local st = ns.Resets.Status()
   eq(st.bank.on, true); eq(st.bank.lastSeen.price, 25000); eq(st.stable.lastSeen, "not seen this session")
 end)
+
+test("Forever pet trainer: the talent-wipe dialog with pet text is asked about as a pet reset and accepted through ConfirmTalentWipe", function()
+  local ns, env, shown, calls, popup = setup()
+  env.ConfirmTalentWipe = function() calls[#calls + 1] = "ConfirmTalentWipe" end
+  env.StaticPopup1 = { which = "CONFIRM_TALENT_WIPE",
+    text = { GetText = function() return "Do you want to unlearn all of your pet's skills?" end } }
+  popup("CONFIRM_TALENT_WIPE")
+  truthy(shown.text:find("Take every skill off your pet?", 1, true), shown.text)
+  shown.yes()
+  eq(calls[#calls], "ConfirmTalentWipe")
+end)
+
+test("Forever talent reset keeps the talent question", function()
+  local ns, env, shown, calls, popup = setup()
+  env.StaticPopup1 = { which = "CONFIRM_TALENT_WIPE",
+    text = { GetText = function() return "Are you sure you want to reset your talents?" end } }
+  popup("CONFIRM_TALENT_WIPE")
+  truthy(shown.text:find("Reset your talents?", 1, true), shown.text)
+end)
+
+test("stable slot: accept falls back to C_StableInfo when the globals are gone", function()
+  local ns, env, shown, calls, popup = setup()
+  env.BuyStableSlot, env.GetNextStableSlotCost = nil, nil
+  env.C_StableInfo = { GetNextStableSlotCost = function() return 50000 end,
+    BuyStableSlot = function() calls[#calls + 1] = "C_StableInfo.BuyStableSlot" end }
+  popup("CONFIRM_BUY_STABLE_SLOT")
+  truthy(shown.text:find("5g", 1, true), shown.text)
+  shown.yes()
+  eq(calls[#calls], "C_StableInfo.BuyStableSlot")
+end)

@@ -172,10 +172,37 @@ end
 -- client gives no link, or the table does not know the talent, by the talent's name. A talent that is not a spell
 -- the rules care about is left out. Returns nil when the client cannot say, so rules treat every talent as unknown
 -- rather than missing.
+-- Forever has no talent tabs: its talents are C_Traits nodes, each giving the spell of its chosen entry (confirmed by the
+-- Talent traits section of the export: node rank, entry, spell 19552 = rank 1 of talent 1382). A node with a rank
+-- counts, and its spell resolves to a family like any other spell.
+local function traitTalents(env, class)
+  local CT, T = env.C_ClassTalents, env.C_Traits
+  if type(CT) ~= "table" or type(T) ~= "table" or not class then return nil end
+  local ok, configID = pcall(CT.GetActiveConfigID)
+  if not ok or not configID then return nil end
+  local okc, cfg = pcall(T.GetConfigInfo, configID)
+  if not okc or type(cfg) ~= "table" or type(cfg.treeIDs) ~= "table" then return nil end
+  local active = {}
+  for _, treeID in ipairs(cfg.treeIDs) do
+    local okn, nodes = pcall(T.GetTreeNodes, treeID)
+    for _, nodeID in ipairs(okn and type(nodes) == "table" and nodes or {}) do
+      local _, node = pcall(T.GetNodeInfo, configID, nodeID)
+      local entryID = type(node) == "table" and (node.currentRank or 0) > 0 and node.activeEntry and node.activeEntry.entryID
+      if entryID then
+        local _, entry = pcall(T.GetEntryInfo, configID, entryID)
+        local _, def = pcall(T.GetDefinitionInfo, type(entry) == "table" and entry.definitionID or 0)
+        local family = type(def) == "table" and def.spellID and ns.SpellData.FamilyOfId(class, def.spellID)
+        if family then active[family] = true end
+      end
+    end
+  end
+  return active
+end
+
 function Adapter.ReadActiveTalents(env)
   env = env or _G
   local tabCount = call(env, "GetNumTalentTabs")
-  if type(tabCount) ~= "number" then return nil end
+  if type(tabCount) ~= "number" then return traitTalents(env, Adapter.ReadPlayer(env).class) end
   local active = {}
   local class = Adapter.ReadPlayer(env).class
   for tab = 1, tabCount do
@@ -281,10 +308,20 @@ end
 function Adapter.ReadProfessions(env)
   env = env or _G
   local out = {}
-  local count = call(env, "GetNumSkillLines")
-  if type(count) ~= "number" then return out end
+  -- Forever: C_SkillInfo.GetNumSkillLines and GetSkillLineInfo(i) -> { name, isHeader, rank, maxRank, ... }
+  -- (shape seen in the export); the legacy globals are gone there.
+  local api = env.C_SkillInfo
+  local modern = type(env.GetNumSkillLines) ~= "function" and type(api) == "table" and type(api.GetSkillLineInfo) == "function"
+  local count = modern and select(2, pcall(api.GetNumSkillLines)) or call(env, "GetNumSkillLines")
+  if type(count) ~= "number" then count = 0 end
   for i = 1, count do
-    local name, isHeader, _, rank, _, _, maxRank = call(env, "GetSkillLineInfo", i)
+    local name, isHeader, rank, maxRank, _
+    if modern then
+      local ok, info = pcall(api.GetSkillLineInfo, i)
+      if ok and type(info) == "table" then name, isHeader, rank, maxRank = info.name, info.isHeader, info.rank, info.maxRank end
+    else
+      name, isHeader, _, rank, _, _, maxRank = call(env, "GetSkillLineInfo", i)
+    end
     if type(name) == "string" and not isHeader and type(rank) == "number" then
       local id = Adapter.ProfessionId(env, name)
       if id then out[id] = { skill = rank, max = type(maxRank) == "number" and maxRank or nil } end

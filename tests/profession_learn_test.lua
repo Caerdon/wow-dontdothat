@@ -57,6 +57,21 @@ test("a profession counts as known by its skill line or by the spellbook knowing
   falsy(known[3908], "Tailoring is not known")
 end)
 
+test("professions are read from C_SkillInfo when the legacy skill calls are gone", function()
+  local env = { GetSpellInfo = function(id) return "Z" .. id end,
+    C_SkillInfo = {
+      GetNumSkillLines = function() return 2 end,
+      GetSkillLineInfo = function(i)
+        if i == 1 then return { name = "Z2550", isHeader = false, rank = 40, maxRank = 75 } end
+        return { name = "Profession", isHeader = true }
+      end,
+    },
+    IsSpellKnown = function() return false end }
+  local known = ns.Adapter.ReadProfessions(env)
+  eq(known[COOKING].skill, 40)
+  eq(known[COOKING].max, 75)
+end)
+
 test("the first time: defer with a direct reason naming the profession and no cost", function()
   local v = ns.Rules.Evaluate(profile(), learn(LEATHERWORKING, "Leatherworking"))
   eq(v.tier, "defer"); eq(v.source, "professionLearn"); eq(v.profession, LEATHERWORKING); eq(v.cost, nil)
