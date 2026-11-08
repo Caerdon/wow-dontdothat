@@ -16,9 +16,10 @@ Thanks for helping. Don't Do That is a WoW Classic addon (Lua) that warns player
    ```
    luajit tests/run.lua            # everything
    luajit tests/run.lua savings    # tests whose file name contains "savings"
+   make test                       # same as the first line
    ```
 
-3. Run the checks the release workflow runs:
+3. Run the checks CI runs on every pull request and the release workflow runs on a tag (`make check` runs them all):
 
    ```
    sh tools/check-toc.sh DontDoThat/DontDoThat_Vanilla.toc

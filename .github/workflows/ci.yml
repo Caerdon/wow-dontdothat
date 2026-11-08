@@ -1,0 +1,22 @@
+name: CI
+
+# Tests and checks on every push to main and on every pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LuaJIT
+        run: sudo apt-get update && sudo apt-get install -y luajit
+      - name: Tests
+        run: make test
+      - name: Checks
+        run: make check
