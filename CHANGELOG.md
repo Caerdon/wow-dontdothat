@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.9
+
+- Fixed the doubled page headings in the game's AddOns panel: the page name and an identical title line were both shown. The `/ddt` window is unchanged.
+- The store summary and addon notes now read "safeguards your gold so you can save up for your mount".
+
 ## 0.10.8
 
 - Fixed beast training (a hunter's pet abilities, paid in training points) refusing ranks that cost points on Forever. The addon now leaves that window alone: no wrapped purchase, no marks, no prompts. A Pet Trainer NPC still gets the full treatment.

@@ -37,9 +37,13 @@ local MUTED = "|cff9d9d9d"
 local Page = {}
 Page.__index = Page
 
+-- The game's AddOns panel already prints a page's name as its heading, so a title that repeats the name is left
+-- out there (set while the panel's pages are built). The /ddt tree window shows no heading of its own and keeps it.
+local panelBuild = false
+
 local function newPage(name, order, title, intro)
   local page = setmetatable({ args = {}, n = 0, name = name, order = order }, Page)
-  page:add("title", { type = "description", fontSize = "large", width = "full", name = ACCENT .. title .. "|r" })
+  if not (panelBuild and title == name) then page:add("title", { type = "description", fontSize = "large", width = "full", name = ACCENT .. title .. "|r" }) end
   if intro then page:text("intro", intro) end
   page.lead = page.n -- items before the first section: the title and introduction
   return page
@@ -1246,6 +1250,7 @@ function Options.Register(addon)
   pcall(config.RegisterOptionsTable, config, APP, Options.Root())
 
   -- The game's own AddOns list: a parent entry with one sub-page per group.
+  panelBuild = true
   local parentPage = newPage(TITLE, 0, TITLE, L["Pick a page from the list on the left, or type /ddt."])
   local parent = parentPage:group()
   pcall(config.RegisterOptionsTable, config, APP .. "_parent", parent)
@@ -1255,6 +1260,7 @@ function Options.Register(addon)
     pcall(config.RegisterOptionsTable, config, name, page.group)
     pcall(dialog.AddToBlizOptions, dialog, name, page.group.name, TITLE)
   end
+  panelBuild = false
 
   if addon then
     function addon:OpenOptions() Options.Open() end
