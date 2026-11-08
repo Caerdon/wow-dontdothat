@@ -1,6 +1,8 @@
 name: Release
 
-# Tag vX.Y.Z to test, package and publish.
+# Tag vX.Y.Z to test, package and publish. The tag must equal the version in both TOC files.
+# CurseForge and Wago uploads are skipped for a site whose project ID is missing from the TOCs
+# (## X-Curse-Project-ID, ## X-Wago-ID); see docs/publishing.md.
 on:
   push:
     tags: ["v*"]
@@ -17,12 +19,11 @@ jobs:
           fetch-depth: 0 # the packager reads tags and history
       - name: Install LuaJIT
         run: sudo apt-get update && sudo apt-get install -y luajit
-      - name: Check
+      - name: Tests
+        run: make test
+      - name: Checks
         run: |
-          luajit tests/run.lua
-          for toc in DontDoThat/DontDoThat_*.toc; do sh tools/check-toc.sh "$toc"; done
-          sh tools/check-tocs-match.sh
-          bash tools/check-embeds.sh
+          make check
           sh tools/check-version.sh "${{ github.ref_name }}"
       - uses: BigWigsMods/packager@v2
         env:
