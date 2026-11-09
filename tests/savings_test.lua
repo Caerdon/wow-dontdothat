@@ -2,7 +2,7 @@ package.path = "./tests/?.lua;" .. package.path
 local H = require("harness")
 
 local ns = {}
-for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Data/TrainerPrices.lua", "Model/SpellData.lua",
+for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Data/TrainerPrices.lua", "Model/SpellData.lua",
   "Model/Ledger.lua", "Model/Savings.lua", "Model/Settings.lua", "Model/Milestones.lua", "UI/Helpers.lua", "Data/Sounds.lua" }) do
   H.load("DontDoThat/" .. f, ns)
 end
@@ -119,10 +119,13 @@ test("class page: the overview gives each spec's savings", function()
 end)
 
 test("switch worth: a rule kind, a tag and an ability are each worth their savings", function()
-  local p = profile("HUNTER", { "BM" })
+  local p = profile("HUNTER", { "BM" }, { skipRevision = 1 })
   local stop = 60
   local skip = ns.Savings.Worth(p, stop, nil, "offKinds", "skipRank")
   eq(skip, ns.Savings.Compute(p, stop).skip, "skipped ranks are worth exactly what they save")
+  -- Revision 2 skips some ranks other rules would defer anyway, so switching the kind off gives back at most what it saves.
+  local newest = profile("HUNTER", { "BM" })
+  truthy(ns.Savings.Worth(newest, stop, nil, "offKinds", "skipRank") <= ns.Savings.Compute(newest, stop).skip)
   truthy(ns.Savings.Worth(p, stop, nil, "offTags", "RaidGroup") > 0)
   local byFamily = ns.Savings.ByAbility(p, stop)
   local shot = H.fid(ns, "HUNTER", "Distracting Shot")
@@ -132,7 +135,7 @@ end)
 
 test("switch worth: switches show their gold, and a switched-off ability still shows its value", function()
   ns.db = { profile = {}, char = { costCache = {} } }
-  ns.Context = { Profile = function() return { class = "HUNTER", plausibleSpecs = { "BM" }, milestone = { current = 40, state = "active" } } end }
+  ns.Context = { Profile = function() return { class = "HUNTER", plausibleSpecs = { "BM" }, milestone = { current = 40, state = "active" }, rules = { skipRevision = 1 } } end }
   local function desc(w) local d = w.desc; if type(d) == "function" then d = d() end; return d end
   local tuning = ns.Options.Tuning().args
   truthy(desc(tuning.kind_skipRank):find("Worth about", 1, true), "rule kinds show gold")
@@ -157,7 +160,7 @@ end)
 
 test("switch worth: a price learned at a trainer refreshes the shown value", function()
   ns.db = { profile = {}, char = { costCache = {} } }
-  ns.Context = { Profile = function() return { class = "HUNTER", plausibleSpecs = { "BM" }, milestone = { current = 40, state = "active" } } end }
+  ns.Context = { Profile = function() return { class = "HUNTER", plausibleSpecs = { "BM" }, milestone = { current = 40, state = "active" }, rules = { skipRevision = 1 } } end }
   local function desc(w) local d = w.desc; if type(d) == "function" then d = d() end; return d end
   local tuning = ns.Options.Tuning().args
   local before = desc(tuning.kind_skipRank)
@@ -169,4 +172,15 @@ test("savings: a price saved under an English name by an earlier version is igno
   local base = ns.Savings.Compute(profile("HUNTER", { "BM" }), 60)
   local r = ns.Savings.Compute(profile("HUNTER", { "BM" }), 60, { ["Distracting Shot1"] = 999999, ["Distracting Shot#1"] = 999999 })
   eq(r.total, base.total)
+end)
+
+test("savings: the projected savings follow the skip revision in use", function()
+  local one = ns.Savings.Compute(profile("WARRIOR", { "ARMS" }, { skipRevision = 1 }), 60)
+  local two = ns.Savings.Compute(profile("WARRIOR", { "ARMS" }, { skipRevision = 2 }), 60)
+  local default = ns.Savings.Compute(profile("WARRIOR", { "ARMS" }), 60)
+  truthy(one.skip > 0 and two.skip > 0)
+  truthy(one.skip ~= two.skip, "revision 1 and 2 skip different ranks")
+  eq(default.skip, two.skip, "no pick means the newest")
+  -- Worth keeps the revision when it switches the kind off.
+  eq(ns.Savings.Worth(profile("WARRIOR", { "ARMS" }, { skipRevision = 1 }), 60, nil, "offKinds", "skipRank") <= one.skip, true)
 end)

@@ -12,7 +12,7 @@ test("warlock: core spells are kept for every spec, and Fear is kept at every ra
 end)
 
 test("warlock: no rank skips, since the expert guide gives none", function()
-  eq(w.data.skipRanks, nil)
+  eq(next(w.skipRanks()), nil)
   eq(w.tier("Fear", { "DEST" }, nil, 1), "keep")
 end)
 

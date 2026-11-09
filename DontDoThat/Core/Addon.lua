@@ -90,4 +90,9 @@ function addon:OnEnable()
     if ns.Capture then
         ns.Capture.Enable(self, _G, self.db.global.probe)
     end
+    -- Once per profile: which skip list is in use, that the newest one changed the rules, and how to change it.
+    if ns.SkipRevision then
+        local lines = ns.SkipRevision.Notice(self.db.profile)
+        for _, line in ipairs(lines or {}) do self:Print(line) end
+    end
 end

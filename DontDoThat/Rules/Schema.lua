@@ -69,13 +69,6 @@ local function checkClass(d, where)
     checkCost(w .. ".mount", m.mount)
     if m.note ~= nil and type(m.note) ~= "string" then fail(w .. ".note", "must be a string") end
   end
-  for name, ranks in pairs(d.skipRanks or {}) do
-    local w = where .. " skipRanks." .. tostring(name)
-    if type(ranks) ~= "table" or #ranks == 0 then fail(w, "must be a non-empty list of rank numbers") end
-    for i, rank in ipairs(ranks) do
-      if not isInt(rank) or rank < 1 then fail(w .. "[" .. i .. "]", "must be a rank number of 1 or more") end
-    end
-  end
   for family, rows in pairs(d.ranks or {}) do
     local w = where .. " ranks." .. tostring(family)
     if type(rows) ~= "table" or #rows == 0 then fail(w, "must be a non-empty list of rank rows") end
@@ -151,11 +144,94 @@ function ns.Rules.Compile(d, resolver)
     copy.rotation = rotation
     out.specs[key] = copy
   end
-  for _, field in ipairs({ "tags", "overrides", "why", "skipRanks", "ranks", "abilityLevels" }) do
+  for _, field in ipairs({ "tags", "overrides", "why", "ranks", "abilityLevels" }) do
     out[field] = map(field, d[field])
+  end
+  -- Skip revisions written in the rule file itself (tests do) name their spells in English too.
+  if d.skipRevisions ~= nil then
+    out.skipRevisions = {}
+    for rev, body in pairs(d.skipRevisions) do
+      local copy = {}
+      for k, v in pairs(body) do copy[k] = v end
+      copy.entries = map("skipRevisions." .. tostring(rev) .. ".entries", body.entries)
+      out.skipRevisions[rev] = copy
+    end
   end
   for _, field in ipairs({ "talentSpells", "reviewed", "general", "pet" }) do
     out[field] = list(field, d[field])
   end
   return out
+end
+
+-- Skip revisions (Data/SkipRevisions.lua): ns.SkipRevisions[CLASS][revision] = { inherits = n | nil, entries = {
+-- [familyId] = { [rank] = { entry, ... } } } }, with entry = { source, reason = { kind, numbers }, specs = { keys } | nil }.
+-- An empty list for a rank means "not skipped in this revision". reason kinds and the numbers each carries:
+ns.Rules.SKIP_REASON_KINDS = {
+  guideFirstRankOnly = {}, guideSkipEntirely = {}, guideUpToRank = { "n" }, guideNotTrained = {},
+  noGain = {}, smallStep = { "pct" }, notWorthPrice = { "pct" }, waitForMount = {}, legacy = {},
+}
+local SKIP_SOURCES = { guide = true, computed = true, legacy = true }
+
+-- Raises a clear error when a class's revisions are malformed. specs = the class's spec keys (a set);
+-- familyOk(id) -> bool, when given, says the family ID is a real family of the class.
+function ns.Rules.ValidateSkipRevisions(class, revisions, specs, familyOk)
+  local where = class .. " skipRevisions"
+  if type(revisions) ~= "table" then fail(where, "must be a table") end
+  for rev, body in pairs(revisions) do
+    local w = where .. "[" .. tostring(rev) .. "]"
+    if not isInt(rev) or rev < 1 then fail(w, "a revision must be a whole number of 1 or more") end
+    if type(body) ~= "table" or type(body.entries) ~= "table" then fail(w, "needs an entries table") end
+    if body.inherits ~= nil and (not isInt(body.inherits) or body.inherits >= rev or revisions[body.inherits] == nil) then
+      fail(w .. ".inherits", "must name an earlier revision that exists")
+    end
+    for family, ranks in pairs(body.entries) do
+      local fw = w .. ".entries[" .. tostring(family) .. "]"
+      if familyOk and (not isInt(family) or not familyOk(family)) then fail(fw, "is not a spell family of this class") end
+      if type(ranks) ~= "table" then fail(fw, "must map ranks to entry lists") end
+      for rank, list in pairs(ranks) do
+        local rw = fw .. "[" .. tostring(rank) .. "]"
+        if not isInt(rank) or rank < 2 then fail(rw, "a skipped rank must be a number of 2 or more (rank 1 is never skipped)") end
+        if type(list) ~= "table" then fail(rw, "must be a list of entries") end
+        for i, entry in ipairs(list) do
+          local ew = rw .. "[" .. i .. "]"
+          if not SKIP_SOURCES[entry.source] then fail(ew .. ".source", "must be guide, computed or legacy") end
+          local kind = type(entry.reason) == "table" and ns.Rules.SKIP_REASON_KINDS[entry.reason.kind]
+          if not kind then fail(ew .. ".reason", "needs a known reason kind") end
+          for _, field in ipairs(kind) do
+            if not isInt(entry.reason[field]) then fail(ew .. ".reason." .. field, "must be a whole number") end
+          end
+          if entry.specs ~= nil then
+            if type(entry.specs) ~= "table" or #entry.specs == 0 then fail(ew .. ".specs", "must be a non-empty list of spec keys") end
+            for _, key in ipairs(entry.specs) do
+              if not specs[key] then fail(ew .. ".specs", "'" .. tostring(key) .. "' is not a spec of this class") end
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+-- Applies `inherits`: returns { [revision] = { [familyId] = { [rank] = { entry, ... } } } } with every earlier
+-- revision's entries carried forward and the revision's own entries replacing them, rank by rank.
+function ns.Rules.FlattenSkipRevisions(revisions)
+  local numbers = {}
+  for rev in pairs(revisions) do numbers[#numbers + 1] = rev end
+  table.sort(numbers)
+  local out = {}
+  for _, rev in ipairs(numbers) do
+    local body, flat = revisions[rev], {}
+    if body.inherits then
+      for family, ranks in pairs(out[body.inherits]) do
+        flat[family] = {}
+        for rank, list in pairs(ranks) do flat[family][rank] = list end
+      end
+    end
+    for family, ranks in pairs(body.entries) do
+      flat[family] = flat[family] or {}
+      for rank, list in pairs(ranks) do flat[family][rank] = list end
+    end
+    out[rev] = flat
+  end
+  return out, numbers
 end

@@ -350,6 +350,25 @@ function Options.Tuning()
       function(_, value) setKindOff(kind.key, not value); applyNow() end)
   end
 
+  if ns.SkipRevision then
+    page:section("revisionHeader", L["Skip list"])
+    local newest = ns.SkipRevision.Newest()
+    local values, order = {}, {}
+    for _, rev in ipairs(ns.SkipRevision.Available()) do
+      local text = rev == newest and L["Revision %d (default): %s"] or L["Revision %d: %s"]
+      values[rev] = text:format(rev, ns.SkipRevision.Describe(rev))
+      order[#order + 1] = rev
+    end
+    page:add("skipRevision", {
+      type = "select", width = "full", name = L["Which skip list should be used?"],
+      desc = L["Which ranks to skip is decided by a numbered revision of the skip list. Pick an earlier one to go back to what an older version advised."],
+      values = values, sorting = order,
+      get = function() return ns.SkipRevision.InUse() end,
+      set = function(_, value) ns.Settings.SetSkipRevision(value); applyNow(); Options.Rebuild() end,
+    })
+    page:note("revisionNote", L["The Rules page lists the ranks to skip for the revision you pick, with the reason for each."])
+  end
+
   page:section("tiersHeader", L["Ask and warn about"])
   for _, info in ipairs(TIER_CHOICES) do
     page:toggle("tier_" .. info.key, info.name, info.desc,
@@ -362,9 +381,9 @@ function Options.Tuning()
   end
   page:note("tiersNote", L["Leave all three empty to be asked about nothing. The (i) marks and tooltips still show."])
 
-  for _, key in ipairs({ "warnings", "blocking", "kind_skipRank", "kind_offSpec",
+  for _, key in ipairs({ "warnings", "blocking", "kind_skipRank", "kind_offSpec", "skipRevision",
       "tier_defer", "tier_deferLow", "tier_info" }) do
-    page.args[key].disabled = off
+    if page.args[key] then page.args[key].disabled = off end
   end
   return page:group()
 end
@@ -468,7 +487,12 @@ local function sortedKeys(t)
 end
 
 local function byName(items)
-  table.sort(items, function(x, y) return x.name < y.name end)
+  -- By name, then by the first rank a line lists, so one spell's lines run in rank order whatever the sort does with ties.
+  table.sort(items, function(x, y)
+    if x.name ~= y.name then return x.name < y.name end
+    if (x.firstRank or 0) ~= (y.firstRank or 0) then return (x.firstRank or 0) < (y.firstRank or 0) end
+    return tostring(x.id) < tostring(y.id)
+  end)
   return items
 end
 
@@ -523,7 +547,7 @@ local function entryFor(data, id, detail)
   return { id = id, name = ns.SpellData.DisplayName(data.class, id) or tostring(id), detail = detail }
 end
 
-function Options.ClassSummary(data)
+function Options.ClassSummary(data, revision)
   local keep, wait, low, skipped = {}, {}, {}, {}
   local best, tagOf = {}, {}
   local specs = orderedSpecs(data)
@@ -564,11 +588,34 @@ function Options.ClassSummary(data)
       if tier == "defer" then wait[#wait + 1] = entry else low[#low + 1] = entry end
     end
   end
-  for id, ranks in pairs(data.skipRanks or {}) do
-    local list = {}
-    for _, rank in ipairs(ranks) do list[#list + 1] = tostring(rank) end
-    skipped[#skipped + 1] = entryFor(data, id,
-      (L["Skip rank%s %s. Only a small upgrade over the rank before it."]):format(#list > 1 and "s" or "", table.concat(list, ", ")))
+  -- Ranks to skip: one line per spell and reason, from the revision in use. A rank skipped for some specs only is
+  -- listed under those specs; the reason and where it came from are shown with it.
+  revision = revision or (ns.SkipRevision and ns.SkipRevision.InUse()) or ns.Rules.NewestRevision()
+  local flat = data.skipRevisions and data.skipRevisions[revision] or {}
+  local specKeys = {}
+  for _, spec in ipairs(specs) do specKeys[#specKeys + 1] = spec.key end
+  for id, ranks in pairs(flat) do
+    local lines, order = {}, {}
+    for _, rank in ipairs(sortedKeys(ranks)) do
+      for _, e in ipairs(ranks[rank]) do
+        local specSet, listed = {}, e.specs or specKeys
+        for _, key in ipairs(listed) do specSet[key] = true end
+        local reason, source = ns.Rules.SkipReason(e.reason), ns.Rules.SkipSource(e.source)
+        local lineKey = reason .. "|" .. source .. "|" .. table.concat(sortedKeys(specSet), ",")
+        if not lines[lineKey] then
+          lines[lineKey] = { reason = reason, source = source, specs = specSet, ranks = {} }
+          order[#order + 1] = lineKey
+        end
+        table.insert(lines[lineKey].ranks, tostring(rank))
+      end
+    end
+    for _, lineKey in ipairs(order) do
+      local line = lines[lineKey]
+      local entry = entryFor(data, id, (L["Skip rank%s %s. %s %s"]):format(#line.ranks > 1 and "s" or "", table.concat(line.ranks, ", "), line.reason, line.source))
+      entry.specs = line.specs
+      entry.firstRank = tonumber(line.ranks[1])
+      skipped[#skipped + 1] = entry
+    end
   end
   -- General skills (Auto Shot, Dual Wield) are left off the page; pet spells sit under Pet, not under a spec.
   local general, pet = setOf(data.general), setOf(data.pet)
@@ -602,7 +649,8 @@ function Options.ClassSummary(data)
   return { keep = byName(keep), optional = byName(optional), wait = byName(wait), low = byName(low), skipped = byName(skipped),
     keepGroups = buildGroups(keep, bySpec(keepBy)), optionalGroups = buildGroups(optional, bySpec(optionalBy)),
     waitGroups = buildGroups(wait, byTag), lowGroups = buildGroups(low, byTag),
-    skippedGroups = buildGroups(skipped, bySpec(usedBy)) }
+    skippedGroups = buildGroups(skipped, function(entry) if pet[entry.id] then return PET end return specTitle(entry.specs) end),
+    revision = revision }
 end
 
 -- A read-only line: name, then the reason beneath it, with an icon.
@@ -746,6 +794,7 @@ function Options.Rules()
     if data then
       local s = Options.ClassSummary(data)
       classCount = classCount + 1
+      local revisionLine = ns.SkipRevision and (L["Ranks to skip follow skip list revision %d. You can change it on the Tuning page."]):format(s.revision) or nil
       classes[key] = {
         type = "group", order = classCount + 2, name = titleCase(key), childGroups = "tree",
         args = {
@@ -758,6 +807,9 @@ function Options.Rules()
         },
       }
       for argKey, widget in pairs(Options.ClassOverview(key, s)) do classes[key].args[argKey] = widget end
+      if revisionLine then
+        classes[key].args.revisionLine = { type = "description", order = 1, fontSize = "medium", width = "full", name = MUTED .. revisionLine .. "|r" }
+      end
     end
   end
 
@@ -1265,6 +1317,22 @@ function Options.Register(addon)
   if addon then
     function addon:OpenOptions() Options.Open() end
   end
+  return true
+end
+
+-- Builds every page again and hands the tables to the registry, so a list that depends on a setting (the ranks to
+-- skip follow the skip revision) shows the new choice. Safe to call when the options window was never opened.
+function Options.Rebuild()
+  local libs = _G.LibStub
+  if not libs then return false end
+  local okC, config = pcall(libs, "AceConfig-3.0")
+  if not (okC and config) then return false end
+  pcall(config.RegisterOptionsTable, config, APP, Options.Root())
+  panelBuild = true
+  for _, page in ipairs(Options.Pages()) do pcall(config.RegisterOptionsTable, config, APP .. "_" .. page.key, page.group) end
+  panelBuild = false
+  local okR, registry = pcall(libs, "AceConfigRegistry-3.0")
+  if okR and registry then pcall(registry.NotifyChange, registry, APP) end
   return true
 end
 

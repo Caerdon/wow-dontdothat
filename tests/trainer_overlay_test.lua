@@ -2,7 +2,7 @@ package.path = "./tests/?.lua;" .. package.path
 local H = require("harness")
 
 local ns = {}
-for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua", "Rules/Data/ProfessionLearn.lua", "Model/SpecInference.lua",
+for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua", "Rules/Data/ProfessionLearn.lua", "Model/SpecInference.lua",
   "Model/Milestones.lua", "Model/PlayerProfile.lua", "Intercepts/Adapter.lua", "Intercepts/Context.lua",
   "Intercepts/Trainer.lua" }) do
   H.load("DontDoThat/" .. f, ns)

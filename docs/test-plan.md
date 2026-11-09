@@ -106,6 +106,16 @@ Levels needed: most steps work at **level 10**. Steps marked (L12) need level 12
 - [ ] Warlock: at a demon trainer or vendor, a secondary grimoire (Soothing Kiss, Devour Magic…) is asked about and one the guides recommend (Firebolt, Torment…) is not. Works the same on a client in another language.
 - [ ] The Milestones page notices riding once learned: Apprentice Riding on Forever, or your race's riding spell (Horse Riding, Wolf Riding…) on Classic Era. On Classic Era level 60 riding shows once the racial riding skill has a max rank of 150; the identity checks print the skill line's rank and what `ReadRiding` says.
 
+## 12. Skip list revisions
+- [ ] First load after installing or updating (use a fresh `WTF` profile, or delete `revisionNotice` from the saved variables): the chat prints, once, that skip list revision 2 is in use, that its rules changed significantly (many more ranks skipped, decided for your spec, each with its reason), and how to change it (`/ddt revision 1`, Advanced > Tuning). `/reload`: it is not printed again.
+- [ ] `/ddt revision` prints the revision in use and the revisions available. `/ddt revision 1` says "Now using skip list revision 1." and the Rules page and the Tuning page agree. `/ddt revision 9` changes nothing and lists the valid revisions. `/ddt revision 2` goes back.
+- [ ] Advanced > Tuning > Skip list: a select with "Revision 2 (default): ..." and "Revision 1: ...". Picking Revision 1 and reopening the Rules page shows its ranks to skip, and the line at the top of the class page names revision 1.
+- [ ] Warrior at a trainer on revision 2: Thunder Clap rank 2 and later are marked, and the tooltip says the leveling guide says to buy only the first rank of this spell. Rend rank 5 says to buy it only up to rank 4. On revision 1 the same ranks give the same guide reasons. Neither tooltip names Wowhead or "computed".
+- [ ] A rank skipped for some specs only (for example a Mage spell skipped for Frost and Fire): with Frost chosen as the spec it is marked; with Arcane chosen it is not; with the spec undecided and talents split, it is not marked.
+- [ ] At level 60 without the mount: a utility spell's later rank says it can wait until the level 60 mount; the first rank of a new level 60 spell and a damage or healing rank are not marked. After buying the mount nothing is marked.
+- [ ] Switch an ability off on the Rules page, then change revision: it stays off under both. Switch off Skip ranks on Tuning: no rank is marked under either revision.
+- [ ] The Rules page's Ranks to skip lists each rank with its reason and, beneath it, where it came from ("From the Wowhead leveling guide.", "Computed from the game data.", "From the earlier skip list.").
+
 ## Not covered yet
 - Profession trainer rows are recognised by the client's name for the apprentice spell. Section 11 checks this on a real trainer; until it is ticked the row shape is unverified. With debug on, open each trainer and `/ddt export`.
 - Anything on WoW Forever itself. Everything here is Classic Era until Forever is available.

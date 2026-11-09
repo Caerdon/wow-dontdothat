@@ -118,17 +118,6 @@ ns.Rules.Load({
     ["Wing Clip"] = "keep",     -- vital for solo play
   },
 
-  -- Ranks that add little over the rank before them, so the gold is better kept. Arcane Shot and Serpent Sting
-  -- are not skipped: Wowhead's Hunter guides recommend rank 7 of both. Wing Clip and Freezing Trap keep rank 1
-  -- only: higher ranks add damage or duration the player does not need before the mount.
-  -- UNVERIFIED for Forever.
-  skipRanks = {
-    ["Mend Pet"] = { 6 },
-    ["Raptor Strike"] = { 5, 6, 8 }, ["Disengage"] = { 2, 3 },
-    ["Wing Clip"] = { 2, 3 }, ["Freezing Trap"] = { 2, 3 },
-    ["Great Stamina"] = { 5, 7, 9 }, ["Natural Armor"] = { 6, 8, 10 },
-  },
-
   -- Serpent Sting levels and mana costs are from fan-site databases (Endgame Tools), cross-checked only partially; gold costs unknown.
   ranks = {
     ["Serpent Sting"] = ranks({ 4, 10, 18, 26, 34, 42, 50, 58, 60 }, { 15, 30, 50, 80, 115, 150, 190, 230, 250 }),

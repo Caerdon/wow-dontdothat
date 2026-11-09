@@ -9,7 +9,7 @@ H.load("DontDoThat/Rules/Data/Hunter.lua", ns)
 
 local function profile(specs, pts)
   return { class = "HUNTER", level = 25, treePoints = pts or { BM = 21, MM = 0, SV = 0 }, plausibleSpecs = specs,
-    milestone = { current = 40, state = "active" } }
+    milestone = { current = 40, state = "active" }, rules = { skipRevision = 1 } }
 end
 local function tier(name, specs, extra)
   local a = { kind = "spell", name = name, familyId = H.fid(ns, "HUNTER", name) }
@@ -135,7 +135,7 @@ end)
 test("hunter: a skipped rank overrides the family keep, and says why in plain words", function()
   local v = ns.Rules.Evaluate(profile({ "BM" }), { kind = "spell", name = "Mend Pet", familyId = H.fid(ns, "HUNTER", "Mend Pet"), rank = 6, cost = 36000 })
   eq(v.tier, "defer"); eq(v.source, "skipRank"); eq(v.cost, 36000)
-  eq(v.reason, "Only a small upgrade over the rank before it.")
+  eq(v.reason, "An earlier version of this list judged this rank a small upgrade.")
 end)
 
 test("hunter: a rank number alone never flags a spell with no skip rule", function()

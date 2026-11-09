@@ -5,7 +5,7 @@ local H = require("harness")
 local CLASSES = { HUNTER = "Hunter", PALADIN = "Paladin", MAGE = "Mage", WARLOCK = "Warlock", PRIEST = "Priest", DRUID = "Druid",
   SHAMAN = "Shaman", ROGUE = "Rogue", WARRIOR = "Warrior" }
 local ns = { version = "0" }
-for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Model/Milestones.lua",
+for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Model/Milestones.lua",
   "Model/Settings.lua", "Model/ItemCategory.lua" }) do H.load("DontDoThat/" .. f, ns) end
 for _, file in pairs(CLASSES) do H.load("DontDoThat/Rules/Data/" .. file .. ".lua", ns) end
 H.load("DontDoThat/Options/Options.lua", ns)

@@ -60,6 +60,28 @@ function _G.test(name, fn)
   end
 end
 
+-- { [familyId] = { ranks } } that one skip revision skips for a loaded class's data (the shape the old skipRanks table had).
+function H.skipRanks(data, rev)
+  local out = {}
+  for family, ranks in pairs(data.skipRevisions[rev]) do
+    local list = {}
+    for rank, entries in pairs(ranks) do if #entries > 0 then list[#list + 1] = rank end end
+    table.sort(list)
+    if #list > 0 then out[family] = list end
+  end
+  return out
+end
+
+-- Skip revision 1 for synthetic rule data written with names: { Skipper = { 2 } } -> a revision that skips rank 2 of Skipper.
+function H.skipRevisions(map)
+  local entries = {}
+  for name, ranks in pairs(map) do
+    entries[name] = {}
+    for _, rank in ipairs(ranks) do entries[name][rank] = { { source = "legacy", reason = { kind = "legacy" } } } end
+  end
+  return { [1] = { entries = entries } }
+end
+
 -- A resolver for synthetic rule data in tests: the name written is the key the engine uses.
 H.sameKeys = { id = function(name) return name end, prefix = function() return {} end }
 
@@ -67,6 +89,7 @@ H.sameKeys = { id = function(name) return name end, prefix = function() return {
 function H.loadSpellTables(ns)
   H.load("DontDoThat/Data/SpellData.lua", ns)
   H.load("DontDoThat/Data/RuleSpells.lua", ns)
+  H.load("DontDoThat/Data/SkipRevisions.lua", ns)
   H.load("DontDoThat/Data/TalentData.lua", ns)
   H.load("DontDoThat/Model/SpellData.lua", ns)
 end

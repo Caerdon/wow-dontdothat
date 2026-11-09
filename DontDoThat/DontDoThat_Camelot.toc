@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: Don't Do That
 ## Notes: Safeguards your gold so you can save up for your mount: warns you away from unnecessary spending until you have bought your level 40 and level 60 mounts.
-## Version: 0.10.9
+## Version: 0.11.0
 ## Author: NullStatBonus
 ## X-Curse-Project-ID: 1766476
 ## X-Wago-ID: mKOa0DNx
@@ -22,6 +22,7 @@ Data\SpellData.lua
 Data\RuleSpells.lua
 Data\TalentData.lua
 Data\RuleItems.lua
+Data\SkipRevisions.lua
 Model\SpellData.lua
 
 Rules\Schema.lua
@@ -40,6 +41,7 @@ Rules\Data\ProfessionLearn.lua
 Model\SpecInference.lua
 Model\Milestones.lua
 Model\Settings.lua
+Model\SkipRevision.lua
 Model\PlayerProfile.lua
 Model\Ledger.lua
 Model\TrainerVisibility.lua

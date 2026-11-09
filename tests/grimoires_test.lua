@@ -5,7 +5,7 @@ local NS -- the namespace of the test in progress, so link() can look up item ID
 
 local function setup(class, profile)
   local ns = {}
-  for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Data/RuleItems.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Warlock.lua", "Rules/Data/Mage.lua",
+  for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Data/RuleItems.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Warlock.lua", "Rules/Data/Mage.lua",
       "Model/ItemCategory.lua", "Model/ItemWarning.lua", "Model/Ledger.lua", "Intercepts/Adapter.lua", "Intercepts/ItemGuard.lua" }) do
     H.load("DontDoThat/" .. f, ns)
   end

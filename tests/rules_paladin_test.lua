@@ -12,7 +12,7 @@ local data = ns.Rules.GetClass("PALADIN")
 
 local function profile(specs, talents)
   return { class = "PALADIN", level = 25, plausibleSpecs = specs, activeTalents = H.talentSet(ns, "PALADIN", talents),
-    milestone = { current = 40, state = "active" } }
+    milestone = { current = 40, state = "active" }, rules = { skipRevision = 1 } }
 end
 local function eval(name, specs, talents, rank)
   return ns.Rules.Evaluate(profile(specs, talents), { kind = "spell", name = name, familyId = H.fid(ns, "PALADIN", name), rank = rank })
@@ -75,7 +75,7 @@ test("paladin: Hammer of Wrath is core, Exorcism waits, Consecration needs its t
 end)
 
 test("paladin: only Hammer of Justice ranks 2 to 4 are skipped (Icy Veins: just rank 1)", function()
-  eq(data.skipRanks, { [H.fid(ns, "PALADIN", "Hammer of Justice")] = { 2, 3, 4 } })
+  eq(H.skipRanks(data, 1), { [H.fid(ns, "PALADIN", "Hammer of Justice")] = { 2, 3, 4 } })
   truthy(eval("Hammer of Justice", { "RET" }, nil, 1) and eval("Hammer of Justice", { "RET" }, nil, 1).tier ~= "defer")
   for rank = 2, 4 do eq(eval("Hammer of Justice", { "RET" }, nil, rank).source, "skipRank", "rank " .. rank) end
 end)

@@ -54,6 +54,7 @@ local function copyRules(rules)
   for _, bucket in ipairs({ "offAbilities", "offTags", "offKinds" }) do
     for name, off in pairs(rules and rules[bucket] or {}) do out[bucket][name] = off end
   end
+  out.skipRevision = rules and rules.skipRevision -- which skip list the savings are worked out on
   return out
 end
 

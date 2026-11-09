@@ -74,20 +74,6 @@ ns.Rules.Load({
     ["Dual Wield"] = "keep",
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Cleave"] = { 2, 3, 4, 5 },
-    ["Heroic Strike"] = { 9 },
-    ["Intercept"] = { 2, 3 },
-    ["Mocking Blow"] = { 2, 3, 4, 5 },
-    ["Overpower"] = { 2, 3, 4 },
-    ["Pummel"] = { 2 },
-    ["Rend"] = { 5, 6, 7 },
-    ["Shield Bash"] = { 2, 3 },
-    ["Slam"] = { 2, 3, 4, 5 },
-    ["Thunder Clap"] = { 2, 3, 4, 5, 6 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Bloodthirst", "Dual Wield Specialization", "Mortal Strike", "Shield Slam", "Sweeping Strikes",

@@ -6,12 +6,13 @@ why: plain-language reason for a tagged spell. skip: ranks that add nothing (ran
 are added by the scaffold). Spell names are the game's (Forever, or Classic Era where noted)."""
 
 PLAN = {'file': 'Warlock',
- 'skip': {},
- 'skip_source': "Wowhead and Icy Veins Warlock guides give no rank limits; spells follow Icy Veins' Recommended "
-                'Skills to Upgrade list and the Wowhead spec guides; unmentioned spells wait to save gold',
  'specs': [('AFFL', 'Affliction', 1, [], []),
            ('DEMO', 'Demonology', 2, [], []),
-           ('DEST', 'Destruction', 3, ['Shadowburn', 'Conflagrate', 'Rain of Fire'], ['Hellfire'])],
+           ('DEST',
+            'Destruction',
+            3,
+            ['Shadowburn', 'Conflagrate', 'Rain of Fire'],
+            ['Hellfire'])],
  'core': ['Shadow Bolt',
           'Corruption',
           'Immolate',
@@ -66,7 +67,10 @@ PLAN = {'file': 'Warlock',
                        'Fel Armor'],
           'PvP': ['Curse of Tongues', 'Drain Mana'],
           'RaidGroup': ['Curse of the Elements', 'Curse of Shadow'],
-          'Endgame': ['Portal of Summoning', 'Ritual of Doom', 'Bane of Doom', 'Curse of Doom']},
+          'Endgame': ['Portal of Summoning',
+                      'Ritual of Doom',
+                      'Bane of Doom',
+                      'Curse of Doom']},
  'why': {'Curse of Weakness': 'A minor curse you can do without.',
          'Curse of Recklessness': 'A minor curse you can do without.',
          'Curse of Idiocy': 'A minor curse you can do without.',
@@ -85,7 +89,8 @@ PLAN = {'file': 'Warlock',
          'Curse of Doom': 'A level 60 curse.',
          'Curse of the Elements': 'A debuff for groups and raids.',
          'Curse of Shadow': 'A debuff for groups and raids.',
-         'Searing Pain': 'Shadow Bolt and your damage-over-time spells cover it.',
+         'Searing Pain': 'Shadow Bolt and your damage-over-time spells cover '
+                         'it.',
          'Incinerate': 'A level 40 nuke you can do without while leveling.',
          'Soul Fire': 'A slow nuke you can do without while leveling.',
          '~Create Firestone': 'A buff stone you can do without.',
@@ -96,15 +101,19 @@ PLAN = {'file': 'Warlock',
          'Fel Armor': 'A later armor you can do without while leveling.'},
  'milestones': '  milestones = {\n'
                '    [40] = { riding = 0, mount = 0,\n'
-               '      note = "Your Felsteed is paid for in souls, not gold." },\n'
+               '      note = "Your Felsteed is paid for in souls, not gold." '
+               '},\n'
                '  },',
- 'grimoires': '  -- Demon-trainer grimoires teach a demon its abilities. All of them are flagged at vendors except '
-              'the ones the Icy Veins and Wowhead guides recommend (every Imp and Voidwalker grimoire, the '
-              "Succubus's Lash of Pain, Seduction and Lesser Invisibility) and the Felhunter's interrupt.\n"
-              '  grimoires = { keep = { "Firebolt", "Blood Pact", "Fire Shield", "Phase Shift", "Consume Shadows", '
-              '"Sacrifice", "Suffering", "Torment", "Lash of Pain", "Seduction", "Lesser Invisibility", "Spell Lock" '
-              '}, reason = "Secondary demon abilities can wait." },',
+ 'grimoires': '  -- Demon-trainer grimoires teach a demon its abilities. All '
+              'of them are flagged at vendors except the ones the Icy Veins '
+              'and Wowhead guides recommend (every Imp and Voidwalker '
+              "grimoire, the Succubus's Lash of Pain, Seduction and Lesser "
+              "Invisibility) and the Felhunter's interrupt.\n"
+              '  grimoires = { keep = { "Firebolt", "Blood Pact", "Fire '
+              'Shield", "Phase Shift", "Consume Shadows", "Sacrifice", '
+              '"Suffering", "Torment", "Lash of Pain", "Seduction", "Lesser '
+              'Invisibility", "Spell Lock" }, reason = "Secondary demon '
+              'abilities can wait." },',
  'lines': ['Affliction', 'Demonology', 'Destruction', 'Explorer Imp'],
  'class': 'WARLOCK',
  'unverified': []}
-

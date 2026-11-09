@@ -24,7 +24,7 @@ Profile = { class = "HUNTER", level = 25,
 Verdict = { tier = "keep"|"info"|"deferLow"|"defer",
             cost = copper|nil, costIsEstimate = bool,
             reason = "text", milestone = 40|60|nil,
-            source = "override"|"rotation"|"tag"|"supersession"|"default" }
+            source = "skipRank"|"override"|"rotation"|"tag"|"disabled"|"default" }
 
 Service = { familyId = 1978, name = "Serpent Sting", rank = 3, unlockLevel = 18,
             cost = copper|nil, learned = bool, available = bool }   -- trainer/spellbook row, adapter-supplied
@@ -33,7 +33,19 @@ Engine (ns.Rules)
   ns.Rules.Evaluate(profile, action) -> Verdict
   ns.Rules.Load(classData)  -- validates, raises a clear error on malformed data
   ns.Rules.GetClass(classKey) -> data table or nil
-  ns.Rules.SupersessionWindow  -- default 4, overridable via data
+  ns.Rules.SkipRevisionNumbers() -> { 1, 2 }   -- every revision the loaded classes have, ascending
+  ns.Rules.NewestRevision() -> number           -- the default
+  ns.Rules.ResolveRevision(wanted) -> number    -- the pick if it exists, else the newest
+  ns.Rules.SkipEntries(classData, revision, familyId, rank) -> { entry, ... }   -- empty when the rank is not skipped
+  ns.Rules.SkipReason(reason) -> sentence       -- from the locale and the numbers the data records
+  ns.Rules.SkipSource(source) -> sentence       -- "From the Wowhead leveling guide." etc., for the Rules page
+  profile.rules.skipRevision = number | nil     -- the player's pick (nil: newest); read from tuning.skipRevision by Settings.RulesFor
+
+SkipRevision (ns.SkipRevision)   -- Model/SkipRevision.lua, takes the saved profile table
+  ns.SkipRevision.InUse(p) -> number;  ns.SkipRevision.Available() -> { 1, 2 };  ns.SkipRevision.Describe(n) -> one line
+  ns.SkipRevision.Command(argument, p) -> lines   -- /ddt revision [n]: shows, switches, or rejects a number
+  ns.SkipRevision.Notice(p) -> lines | nil        -- the load notice, once per profile (marks p.revisionNotice)
+  ns.Settings.SkipRevision(p) / SetSkipRevision(n, p) / RevisionNoticeDue(newest, p) / MarkRevisionNotice(newest, p)
 
 SpecInference (ns.SpecInference)
   ns.SpecInference.Infer(classData, treePointsByTalentSet, opts) -> plausibleSpecs (array of spec keys)

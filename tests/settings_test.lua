@@ -20,7 +20,7 @@ ns.Rules.Load({
   },
   tagTiers = { PvP = "deferLow", Raid = "defer" },
   tags = { Pvper = { "PvP" }, Both = { "PvP", "Raid" } },
-  skipRanks = { Skipper = { 2 } },
+  skipRevisions = H.skipRevisions({ Skipper = { 2 } }),
   ranks = { Plain = { { rank = 1, unlockLevel = 4 }, { rank = 2, unlockLevel = 10 } } },
 }, H.sameKeys)
 
@@ -143,7 +143,7 @@ test("rules: default settings leave every Hunter verdict unchanged", function()
   local names = {}
   for name in pairs(data.tags or {}) do names[name] = true end
   for name in pairs(data.overrides or {}) do names[name] = true end
-  for name in pairs(data.skipRanks or {}) do names[name] = true end
+  for name in pairs(data.skipRevisions[1].entries or {}) do names[name] = true end
   for name in pairs(data.ranks or {}) do names[name] = true end
   for _, spec in pairs(data.specs) do
     for _, n in ipairs(spec.rotation.core or {}) do names[n] = true end
