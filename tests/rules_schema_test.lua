@@ -53,17 +53,52 @@ test("rules: adding a class needs data only", function()
   eq(v.source, "rotation")
 end)
 
-test("schema: skipRanks must be lists of rank numbers", function()
-  local function load(skip)
-    local ns = fresh()
-    local data = sample()
-    data.skipRanks = skip
-    return pcall(ns.Rules.Load, data, H.sameKeys)
-  end
-  truthy(load({ Foo = { 2, 3 } }))
-  falsy(load({ Foo = {} }))
-  falsy(load({ Foo = { 0 } }))
-  falsy(load({ Foo = "7" }))
+local function skipEntry(source, reason, specs)
+  return { source = source or "computed", reason = reason or { kind = "noGain" }, specs = specs }
+end
+
+local function loadRevisions(revisions)
+  local ns = fresh()
+  local data = sample()
+  data.skipRevisions = revisions
+  return pcall(ns.Rules.Load, data, H.sameKeys), ns
+end
+
+test("schema: skip revisions must be well formed", function()
+  truthy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry() } } } } }))
+  truthy(loadRevisions({ [1] = { entries = {} }, [2] = { inherits = 1, entries = { X = { [3] = {} } } } }), "an empty list removes a skip")
+  truthy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("guide", { kind = "guideUpToRank", n = 4 }, { "A" }) } } } } }))
+  falsy(loadRevisions({ [1] = { entries = { X = { [1] = { skipEntry() } } } } }), "rank 1 is never skipped")
+  falsy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("rumour") } } } } }), "unknown source")
+  falsy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("computed", { kind = "madeUp" }) } } } } }), "unknown reason kind")
+  falsy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("computed", { kind = "smallStep" }) } } } } }), "a reason kind needs its number")
+  falsy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("computed", nil, { "Z" }) } } } } }), "spec the class does not have")
+  falsy(loadRevisions({ [1] = { entries = { X = { [2] = { skipEntry("computed", nil, {}) } } } } }), "empty spec list")
+  falsy(loadRevisions({ [0] = { entries = {} } }), "revision numbers start at 1")
+  falsy(loadRevisions({ [1] = { inherits = 1, entries = {} } }), "a revision inherits an earlier one")
+  falsy(loadRevisions({ [2] = { inherits = 1, entries = {} } }), "inherits a revision that exists")
+  falsy(loadRevisions({ [1] = {} }), "needs entries")
+end)
+
+test("schema: a revision builds on an earlier one, rank by rank", function()
+  local ok, ns = loadRevisions({
+    [1] = { entries = { X = { [2] = { skipEntry("legacy", { kind = "legacy" }) }, [3] = { skipEntry("legacy", { kind = "legacy" }) } },
+                        Y = { [2] = { skipEntry("legacy", { kind = "legacy" }) } } } },
+    [2] = { inherits = 1, entries = { X = { [3] = {} , [4] = { skipEntry("computed", { kind = "smallStep", pct = 12 }) } } } },
+    [3] = { inherits = 2, entries = { Y = { [2] = { skipEntry("guide", { kind = "guideNotTrained" }) } } } },
+  })
+  truthy(ok)
+  local data = ns.Rules.GetClass("TEST")
+  eq(#data.skipRevisions[1].X[3], 1)
+  eq(#data.skipRevisions[2].X[2], 1, "a rank the revision does not name keeps the earlier entry")
+  eq(#data.skipRevisions[2].X[3], 0, "an empty list removes the skip")
+  eq(data.skipRevisions[2].X[4][1].reason.pct, 12)
+  eq(data.skipRevisions[2].Y[2][1].source, "legacy")
+  eq(data.skipRevisions[3].Y[2][1].source, "guide", "the later revision replaces the entry")
+  eq(data.skipRevisions[3].X[4][1].source, "computed", "and keeps what it does not name")
+  eq(data.skipRevisions[1].X[4], nil, "an earlier revision is not touched by a later one")
+  eq(ns.Rules.SkipRevisionNumbers(), { 1, 2, 3 })
+  eq(ns.Rules.NewestRevision(), 3)
 end)
 
 test("compile: names become family IDs and the source data is left alone", function()

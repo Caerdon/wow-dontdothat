@@ -40,13 +40,13 @@ test("druid: niche utility is defer-low-value and group spells wait", function()
 end)
 
 test("druid: only expert-guided ranks are skipped, never rank 1", function()
-  local function skip(name) return d.data.skipRanks[H.fid(d.ns, "DRUID", name)] end
+  local function skip(name) return d.skipRanks()[H.fid(d.ns, "DRUID", name)] end
   eq(skip("Rejuvenation")[1], 11)
   eq(#skip("Rejuvenation"), 1)
   eq(skip("Claw"), nil)
   eq(skip("Healing Touch"), nil)
   eq(skip("Wrath"), nil)
-  for id, ranks in pairs(d.data.skipRanks) do
+  for id, ranks in pairs(d.skipRanks()) do
     for _, r in ipairs(ranks) do assert(r > 1, id .. " skips rank 1") end
   end
 end)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0
+
+- **The rank-skip advice has changed significantly.** Which spell ranks to skip now comes in numbered revisions, and revision 2 is the new default. It skips many more ranks, decides them for your spec (a rank is only flagged when every spec you might be playing skips it), and follows the Wowhead leveling guides wherever they have a view. A later rank that unlocks at level 60 is flagged only for utility spells, and only until you have your level 60 mount.
+- Every skipped rank now says why: the guide says to buy only the first rank, it is only a few percent stronger for a spell you only use now and then, it adds nothing over the rank before it, or it can wait for the mount. The Rules page also shows where each skip came from.
+- The first time the addon loads with the new revision it prints a notice in the chat saying which revision is in use and how to change it.
+- To go back to the earlier list, use `/ddt revision 1` or the new Skip list choice on the Tuning page. `/ddt revision` shows what is in use. Switches you have already set keep working under both revisions.
+- The tools that build the skip data now live in `tools/skip-revision/`; `tools/build-skip-revisions.py` regenerates `Data/SkipRevisions.lua`.
+
 ## 0.10.9
 
 - Fixed the doubled page headings in the game's AddOns panel: the page name and an identical title line were both shown. The `/ddt` window is unchanged.

@@ -46,10 +46,6 @@ ns.Rules.Load({
     },
   },
 
-  -- Ranks to skip, from expert guides: Icy Veins' Classic Paladin guide lists "Hammer of Justice - Just Rank 1".
-  -- Wowhead's Paladin guidance gives no per-rank advice, so nothing else is skipped.
-  skipRanks = { ["Hammer of Justice"] = { 2, 3, 4 } },
-
   tagTiers = { PvP = "deferLow", RaidGroup = "defer", LowValue = "deferLow", Endgame = "defer" },
 
   tagReasons = {

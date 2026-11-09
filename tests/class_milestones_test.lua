@@ -3,7 +3,7 @@ local H = require("harness")
 
 local function fresh(class)
   local ns = { version = "0.1.0" }
-  for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua",
+  for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua",
     "Rules/Data/Paladin.lua", "Rules/Data/Warlock.lua", "Model/Milestones.lua", "Model/Settings.lua", "Model/ItemCategory.lua", "Options/Options.lua" }) do
     H.load("DontDoThat/" .. f, ns)
   end

@@ -4,7 +4,7 @@ local H = require("harness")
 local function fresh()
   local ns = { defaults = nil }
   for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/GoldRates.lua", "Model/EarnBack.lua",
-    "Model/ItemCategory.lua", "Model/ItemWarning.lua", "Model/Ledger.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua",
+    "Model/ItemCategory.lua", "Model/ItemWarning.lua", "Model/Ledger.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua",
     "Rules/Data/Hunter.lua", "Model/Milestones.lua",
     "Options/Options.lua" }) do
     H.load("DontDoThat/" .. f, ns)

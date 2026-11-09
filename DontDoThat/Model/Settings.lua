@@ -89,6 +89,33 @@ function Settings.StopAfter(p)
   return tuning(p).stopAfter == 40 and 40 or 60
 end
 
+-- The skip revision the player picked, or nil for "the newest" (the default). A non-number is ignored.
+function Settings.SkipRevision(p)
+  local v = tuning(p).skipRevision
+  if type(v) == "number" and v == math.floor(v) then return v end
+  return nil
+end
+
+-- Saves the pick; nil goes back to following the newest revision.
+function Settings.SetSkipRevision(revision, p)
+  p = p or saved()
+  if not p then return end
+  p.tuning = p.tuning or {}
+  p.tuning.skipRevision = revision
+end
+
+-- True while the profile has not been told about the newest revision: a new install, or an update that added one.
+function Settings.RevisionNoticeDue(newest, p)
+  p = p or saved()
+  local told = p and p.revisionNotice
+  return type(told) ~= "number" or told < newest
+end
+
+function Settings.MarkRevisionNotice(newest, p)
+  p = p or saved()
+  if p then p.revisionNotice = newest end
+end
+
 -- The settings the engine reads, copied so later edits don't reach a built profile. Nil values mean
 -- "use the rule data".
 function Settings.RulesFor(class, p)
@@ -104,6 +131,7 @@ function Settings.RulesFor(class, p)
     offAbilities = set(off.abilities and off.abilities[class]),
     offTags = set(off.tags and off.tags[class]),
     offKinds = set(off.kinds),
+    skipRevision = t.skipRevision, -- nil: the newest revision (the engine checks the number is one it has)
   }
 end
 
@@ -116,7 +144,7 @@ function Settings.MarkProfessionAsked(profession, p)
 end
 
 -- Settings that record what the player has already done rather than how they like things.
-local KEEP_ON_RESET = { professionAsked = true, milestoneOverride = true }
+local KEEP_ON_RESET = { professionAsked = true, milestoneOverride = true, revisionNotice = true }
 
 -- Puts every setting back to its default. With AceDB, removing a saved key lets the default show through again.
 function Settings.ResetAll(p)

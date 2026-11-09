@@ -3,9 +3,9 @@ local H = require("harness")
 
 local function fresh(profile)
   local ns = { version = "0.1.0" }
-  for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua",
-    "Rules/Data/Hunter.lua", "Data/TrainerPrices.lua",
-    "Model/Ledger.lua", "Model/Savings.lua", "Model/Milestones.lua", "Model/Settings.lua", "Model/ItemCategory.lua", "Options/Options.lua" }) do
+  for _, f in ipairs({ "UI/Helpers.lua", "Data/Sounds.lua", "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua",
+    "Rules/Data/Hunter.lua", "Rules/Data/Warrior.lua", "Rules/Data/Mage.lua", "Data/TrainerPrices.lua",
+    "Model/Ledger.lua", "Model/Savings.lua", "Model/Milestones.lua", "Model/Settings.lua", "Model/SkipRevision.lua", "Model/ItemCategory.lua", "Options/Options.lua" }) do
     H.load("DontDoThat/" .. f, ns)
   end
   ns.db = { profile = profile or {} }
@@ -96,7 +96,7 @@ local function has(entries, name) for _, e in ipairs(entries) do if e.name == na
 
 test("class summary groups the Hunter data the way players hear it", function()
   local ns = fresh()
-  local s = ns.Options.ClassSummary(ns.Rules.GetClass("HUNTER"))
+  local s = ns.Options.ClassSummary(ns.Rules.GetClass("HUNTER"), 1)
   for _, n in ipairs({ "Serpent Sting", "Wing Clip", "Trueshot Aura", "Dual Wield", "Mail" }) do truthy(has(s.keep, n), n .. " is worth buying") end
   for _, n in ipairs({ "Distracting Shot", "Wyvern Sting", "Aspect of the Beast" }) do truthy(has(s.wait, n), n .. " can wait") end
   for _, n in ipairs({ "Track Humanoids", "Scorpid Sting", "Arcane Resistance" }) do truthy(has(s.low, n), n .. " is low value") end
@@ -113,14 +113,14 @@ test("class summary groups the Hunter data the way players hear it", function()
   eq(groupOf(s.lowGroups, "Track Humanoids"), "Spells that rarely help")
   eq(groupOf(s.waitGroups, "Distracting Shot"), "Spells for groups and raids")
   eq(groupOf(s.waitGroups, "Wyvern Sting"), "Spells for level 60")
-  eq(groupOf(s.skippedGroups, "Mend Pet"), "Beast Mastery"); falsy(groupOf(s.keepGroups, "Mend Pet") == "Pet")
+  eq(groupOf(s.skippedGroups, "Mend Pet"), "All specs"); falsy(groupOf(s.keepGroups, "Mend Pet") == "Pet")
   eq(s.keepGroups[#s.keepGroups].title, "Pet", "Pet comes last")
   eq(has(s.wait, "Distracting Shot").detail, "Pulls enemies off your tank. You only need it in groups and raids.")
   eq(has(s.wait, "Wyvern Sting").detail, "You won't need this until level 60.")
   eq(has(s.low, "Scorpid Sting").detail, "Only useful against other players.")
-  eq(has(s.skipped, "Mend Pet").detail, "Skip rank 6. Only a small upgrade over the rank before it.")
+  eq(has(s.skipped, "Mend Pet").detail, "Skip rank 6. An earlier version of this list judged this rank a small upgrade. From the earlier skip list.")
   falsy(has(s.skipped, "Arcane Shot"), "the experts recommend Arcane Shot rank 7")
-  eq(has(s.skipped, "Raptor Strike").detail, "Skip ranks 5, 6, 8. Only a small upgrade over the rank before it.")
+  eq(has(s.skipped, "Raptor Strike").detail, "Skip ranks 5, 6, 8. An earlier version of this list judged this rank a small upgrade. From the earlier skip list.")
   eq(has(s.keep, "Serpent Sting").detail, nil)
   local sorted = names(s.wait)
   for i = 2, #sorted do truthy(sorted[i - 1] <= sorted[i], "sorted by name") end
@@ -496,4 +496,92 @@ test("rules page: a switch is saved by spell, so it survives a change of client 
   truthy(ok, tostring(err))
   eq(ns.Settings.RulesFor("HUNTER").offAbilities[shot], true)
   falsy(find("Distracting Shot").get(), "still switched off when the client shows the English name")
+end)
+
+test("class summary: ranks to skip follow the revision, with the reason and where it came from", function()
+  local ns = fresh()
+  local warrior = ns.Rules.GetClass("WARRIOR")
+  local one, two = ns.Options.ClassSummary(warrior, 1), ns.Options.ClassSummary(warrior, 2)
+  eq(one.revision, 1); eq(two.revision, 2)
+  eq(has(one.skipped, "Rend").detail, "Skip ranks 5, 6, 7. The leveling guide says to buy this spell only up to rank 4. From the Wowhead leveling guide.")
+  eq(has(one.skipped, "Overpower").detail, "Skip ranks 2, 3, 4. The leveling guide says to buy only the first rank of this spell. From the Wowhead leveling guide.")
+  local thunder = has(two.skipped, "Thunder Clap")
+  truthy(thunder and thunder.detail:find("The leveling guide says to buy only the first rank of this spell. From the Wowhead leveling guide.", 1, true))
+  -- A computed skip says it was computed.
+  local computed
+  for _, e in ipairs(two.skipped) do if e.detail:find("Computed from the game data.", 1, true) then computed = e end end
+  truthy(computed, "revision 2 has computed skips")
+  truthy(computed.detail:find("Skip rank", 1, true))
+end)
+
+test("class summary: ranks to skip are sorted by spell name, then by rank, and each line lists its ranks in order", function()
+  local ns = fresh()
+  local checked, multi = 0, 0
+  for _, class in ipairs({ "WARRIOR", "MAGE", "HUNTER" }) do
+    for _, revision in ipairs({ 1, 2 }) do
+      local s = ns.Options.ClassSummary(ns.Rules.GetClass(class), revision)
+      local function check(entries)
+        for i, e in ipairs(entries) do
+          local ranks = {}
+          for n in e.detail:match("^Skip ranks? ([%d, ]+)%."):gmatch("%d+") do ranks[#ranks + 1] = tonumber(n) end
+          for j = 2, #ranks do truthy(ranks[j - 1] < ranks[j], class .. " " .. e.name .. ": " .. e.detail) end
+          eq(e.firstRank, ranks[1])
+          local prev = entries[i - 1]
+          if prev then
+            truthy(prev.name <= e.name, "sorted by name: " .. prev.name .. " before " .. e.name)
+            if prev.name == e.name then truthy(prev.firstRank <= e.firstRank, e.name .. " lines run in rank order"); multi = multi + 1 end
+          end
+          checked = checked + 1
+        end
+      end
+      check(s.skipped)
+      for _, g in ipairs(s.skippedGroups) do check(g.entries) end
+    end
+  end
+  truthy(checked > 20, "checked " .. checked)
+  truthy(multi > 0, "a spell with more than one line was among them")
+end)
+
+test("class summary: a rank skipped for some specs only is listed under those specs", function()
+  local ns = fresh()
+  local mage = ns.Options.ClassSummary(ns.Rules.GetClass("MAGE"), 2)
+  local titles = {}
+  for _, g in ipairs(mage.skippedGroups) do titles[#titles + 1] = g.title end
+  truthy(#titles > 1, "more than one group of skipped ranks: " .. table.concat(titles, " | "))
+  eq(mage.skippedGroups[1].title, "All specs", "All specs comes first")
+end)
+
+test("class summary: with no revision given it follows the one in use", function()
+  local ns = fresh()
+  ns.db = { profile = { tuning = { skipRevision = 1 } } }
+  eq(ns.Options.ClassSummary(ns.Rules.GetClass("HUNTER")).revision, 1)
+  ns.db = { profile = {} }
+  eq(ns.Options.ClassSummary(ns.Rules.GetClass("HUNTER")).revision, 2)
+end)
+
+test("tuning: the skip list choice lists each revision, marks the newest as the default, and saves the pick", function()
+  local ns = fresh({})
+  local widget = ns.Options.Tuning().args.skipRevision
+  truthy(widget, "a skip list choice")
+  eq(widget.get(), 2, "never chosen: the newest")
+  eq(widget.values[2], "Revision 2 (default): Revised with Rules + Expert Advice")
+  eq(widget.values[1], "Revision 1: Original using Expert Advice")
+  falsy(widget.values[1]:find("default", 1, true))
+  eq(widget.sorting, { 1, 2 })
+  widget.set(nil, 1)
+  eq(ns.db.profile.tuning.skipRevision, 1)
+  eq(widget.get(), 1)
+  widget.set(nil, 2)
+  eq(ns.db.profile.tuning.skipRevision, 2, "choosing the newest is remembered as a choice")
+end)
+
+test("rules page: each class page names the revision its ranks to skip follow", function()
+  local ns = fresh({})
+  local rules = ns.Options.Rules()
+  local line = rules.args.WARRIOR.args.revisionLine
+  truthy(line and line.name:find("skip list revision 2", 1, true))
+  ns.db.profile.tuning = { skipRevision = 1 }
+  local again = ns.Options.Rules()
+  truthy(again.args.WARRIOR.args.revisionLine.name:find("skip list revision 1", 1, true))
+  falsy(rules.args.WARRIOR.args.skipped.name == again.args.WARRIOR.args.skipped.name, "the count of ranks to skip follows the revision")
 end)

@@ -4,7 +4,7 @@
 Every spell family of the class (Forever and Classic Era, in the plan's skill lines) must end up somewhere:
 in a rotation, a tag, an override, or the generated `reviewed` list. Names in the plan that are not real
 families, and a spell that is both in a rotation and tagged, are reported and stop the run.
-Rank skips are the plan's own `skip`, taken from expert leveling guides (Wowhead "Spells to Buy").
+Rank skips are not written here: they live in Data/SkipRevisions.lua (tools/build-skip-revisions.py).
 
 The generated names are resolved to spell IDs when the addon loads (see docs/rules-data.md). A name added to a plan
 that the spell tables do not hold goes in tools/rule-spell-names.txt, then run tools/build-rule-spells.py.
@@ -110,9 +110,9 @@ def build(cls):
             if n in rotation:
                 problems.append(f"{n!r} is in a rotation and tagged {t}")
     overrides = plan.get("overrides", {})
-    for n in list(overrides) + list(plan.get("skip", {})):
+    for n in list(overrides):
         if n not in fams:
-            problems.append(f"unknown override or skip {n!r}")
+            problems.append(f"unknown override {n!r}")
     why = dict(plan.get("why", {}))
     for prefix, text in plan.get("whyprefix", {}).items():
         for ns in tags.values():
@@ -121,8 +121,6 @@ def build(cls):
                     why.setdefault(n, text)
 
     classified = rotation | {n for ns in tags.values() for n in ns} | set(overrides)
-    # Rank skips come only from the plan, which takes them from expert leveling guides.
-    skips = {n: set(r) for n, r in plan.get("skip", {}).items()}
     talent_spells = sorted((talents & fams) | (talents & classified))
     reviewed = sorted(fams - classified)
 
@@ -154,11 +152,6 @@ def build(cls):
     L += ["  },\n"]
     if overrides:
         L += ["  overrides = {"] + [f"    [{q(n)}] = {q(v)}," for n, v in overrides.items()] + ["  },\n"]
-    if skips:
-        L += ["  -- Ranks to skip, from expert leveling guides (Wowhead \"Spells to Buy\").",
-              "  skipRanks = {"]
-        L += [f"    [{q(n)}] = {{ {', '.join(map(str, sorted(r)))} }}," for n, r in sorted(skips.items())]
-        L += ["  },\n"]
     L += ["  -- Active spells that come from a talent of the same name. Verified from the game's talent tables.",
           "  talentSpells = {\n" + lua_list(talent_spells, "    ") + "\n  },\n"]
     for key, what in (("general", "Skills that come with the class and are never trained, left off the Classes page."),
@@ -174,7 +167,7 @@ def build(cls):
     path = os.path.join(OUT, plan["file"] + ".lua")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(L))
-    print(f"{cls}: {len(fams)} families, {len(classified)} classified, {len(skips)} spells with skipped ranks, "
+    print(f"{cls}: {len(fams)} families, {len(classified)} classified, "
           f"{len(talent_spells)} talent spells, {len(reviewed)} reviewed -> {os.path.relpath(path)}")
     if demoted:
         print("  demoted to Optional (Forever-only or unverified): " + ", ".join(demoted))

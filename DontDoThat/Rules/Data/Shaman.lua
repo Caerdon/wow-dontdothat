@@ -98,14 +98,6 @@ ns.Rules.Load({
     ["Dual Wield"] = "keep",
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Frost Shock"] = { 2, 3, 4 },
-    ["Healing Wave"] = { 10 },
-    ["Rockbiter Weapon"] = { 5, 6, 7 },
-    ["Strength of Earth Totem"] = { 5 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Ancestral Healing", "Elemental Devastation", "Elemental Reach", "Elemental Warding",

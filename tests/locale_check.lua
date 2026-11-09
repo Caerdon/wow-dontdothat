@@ -13,27 +13,37 @@ local function literal(src, i)
   return chunk and chunk(), j + 1
 end
 
+-- Adds every L["..."] key in one source file to `used`.
+local function scan(path, used)
+  local f = io.open(path); local src = f:read("*a"); f:close()
+  local pos = 1
+  while true do
+    local s, e = src:find("%f[%w_]L%[", pos)
+    if not s then break end
+    local c = src:sub(e + 1, e + 1)
+    if c == '"' or c == "'" then
+      local value, after = literal(src, e + 1)
+      if type(value) == "string" then used[value] = true end
+      pos = after
+    else
+      pos = e + 1
+    end
+  end
+end
+
 -- Every L["..."] key in the addon source under dir (libraries and locale files excluded).
 function M.usedKeys(dir)
   local used = {}
   local p = io.popen('find "' .. dir .. '" -name "*.lua" -not -path "*/Libs/*" -not -path "*/Locales/*"')
-  for path in p:lines() do
-    local f = io.open(path); local src = f:read("*a"); f:close()
-    local pos = 1
-    while true do
-      local s, e = src:find("%f[%w_]L%[", pos)
-      if not s then break end
-      local c = src:sub(e + 1, e + 1)
-      if c == '"' or c == "'" then
-        local value, after = literal(src, e + 1)
-        if type(value) == "string" then used[value] = true end
-        pos = after
-      else
-        pos = e + 1
-      end
-    end
-  end
+  for path in p:lines() do scan(path, used) end
   p:close()
+  return used
+end
+
+-- The keys one source file asks for.
+function M.keysInFile(path)
+  local used = {}
+  scan(path, used)
   return used
 end
 

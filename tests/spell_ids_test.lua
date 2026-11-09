@@ -103,7 +103,7 @@ local function ruleNames(d)
     for _, n in ipairs(spec.rotation.core) do add("specs." .. key .. ".core", n) end
     for _, n in ipairs(spec.rotation.situational or {}) do add("specs." .. key .. ".situational", n) end
   end
-  for _, field in ipairs({ "tags", "overrides", "why", "skipRanks", "ranks", "abilityLevels" }) do
+  for _, field in ipairs({ "tags", "overrides", "why", "ranks", "abilityLevels" }) do
     for n in pairs(d[field] or {}) do add(field, n) end
   end
   for _, field in ipairs({ "talentSpells", "reviewed", "general", "pet" }) do

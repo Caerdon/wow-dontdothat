@@ -9,7 +9,7 @@ A World of Warcraft addon for WoW Forever and Classic Era that safeguards your g
   - Gold: *Not worth buying yet*. A low-value spell.
   - Blue: *Optional*. Handy now and then, but you can get by without it.
 - **Asks before you waste gold.** Buying a spell that isn't recommended, or a non-essential item (armor, weapons, vanity, bags, recipes), a bank or stable slot, COD mail, a talent reset, or your first lesson in a new profession gets a "Buy anyway?" question that says roughly how long it takes to grind that gold back. You can always say yes.
-- **Knows your class and spec.** The advice follows your talents, or the spec you choose, and comes from common leveling builds and expert guides (Wowhead, Icy Veins).
+- **Knows your class and spec.** The advice follows your talents, or the spec you choose, and comes from common leveling builds, the Wowhead leveling guides and a review of the game's spell data. Which ranks to skip is a numbered revision you can change with `/ddt revision`.
 - **Shows what you've saved.** The Progress page tallies the gold you've kept and projects your savings up to the mount you're saving for.
 
 It stays on from level 1 until you've bought the mount you chose to stop at. It only ever asks, and you can turn any part off.

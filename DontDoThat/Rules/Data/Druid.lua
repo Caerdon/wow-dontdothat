@@ -75,11 +75,6 @@ ns.Rules.Load({
     ["Gift of the Wild"] = { "Endgame" },
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Rejuvenation"] = { 11 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Faerie Fire (Feral)", "Feral Charge", "Gift of Nature", "Insect Swarm", "Leader of the Pack",

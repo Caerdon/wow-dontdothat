@@ -3,7 +3,7 @@ local H = require("harness")
 
 -- Nudge level and the watch-area switches (Model/Settings.lua), and what the switches do.
 local ns = {}
-for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua", "Model/SpecInference.lua",
+for _, f in ipairs({ "Data/SpellData.lua", "Data/RuleSpells.lua", "Data/SkipRevisions.lua", "Data/TalentData.lua", "Model/SpellData.lua", "Rules/Schema.lua", "Rules/Engine.lua", "Rules/Data/Hunter.lua", "Model/SpecInference.lua",
   "Model/Milestones.lua", "Model/Settings.lua", "Model/PlayerProfile.lua", "Intercepts/Adapter.lua",
   "Intercepts/Context.lua", "Intercepts/Trainer.lua" }) do
   H.load("DontDoThat/" .. f, ns)

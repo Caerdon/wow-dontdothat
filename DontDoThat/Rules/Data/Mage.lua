@@ -91,13 +91,6 @@ ns.Rules.Load({
     ["Arcane Brilliance"] = { "Endgame" },
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Conjure Food"] = { 7 },
-    ["Frostbolt"] = { 11 },
-    ["Pyroblast"] = { 2 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Arcane Resilience", "Arcane Subtlety", "Blast Wave", "Burning Soul", "Cold Snap", "Combustion",

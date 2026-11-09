@@ -96,14 +96,6 @@ ns.Rules.Load({
     ["Dual Wield"] = "keep",
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Backstab"] = { 9 },
-    ["Eviscerate"] = { 9 },
-    ["Gouge"] = { 2, 3, 4, 5 },
-    ["Kick"] = { 2, 3, 4 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Ghostly Strike", "Hemorrhage",

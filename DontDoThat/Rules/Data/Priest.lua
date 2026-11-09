@@ -101,14 +101,6 @@ ns.Rules.Load({
     ["Prayer of Shadow Protection"] = { "Endgame" },
   },
 
-  -- Ranks to skip, from expert leveling guides (Wowhead "Spells to Buy").
-  skipRanks = {
-    ["Inner Fire"] = { 6 },
-    ["Power Word: Shield"] = { 10 },
-    ["Psychic Scream"] = { 2, 3, 4 },
-    ["Renew"] = { 10 },
-  },
-
   -- Active spells that come from a talent of the same name. Verified from the game's talent tables.
   talentSpells = {
     "Blackout", "Blessed Recovery", "Darkness", "Divine Spirit", "Holy Nova", "Holy Reach",

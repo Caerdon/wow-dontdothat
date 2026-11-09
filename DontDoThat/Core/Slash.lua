@@ -73,11 +73,15 @@ function addon:HandleSlash(input)
         -- Acts like a purchase of a deferred spell with your current settings, but buys nothing.
         say(L["test (build %s)"]:format(tostring(ns.build)))
         if ns.TrainerConfirm then ns.TrainerConfirm.Test(say) else say(L["test: not available yet"]) end
+    elseif cmd == "revision" then
+        -- The skip list revision: show it, or pick one. (rest was lowercased above; a number is unaffected.)
+        for _, line in ipairs(ns.SkipRevision.Command(rest, self.db and self.db.profile)) do say(line) end
+        if ns.Options and ns.Options.Rebuild and rest ~= "" then pcall(ns.Options.Rebuild) end
     elseif cmd == "version" then
         say(L["Don't Do That v%s (build %s)"]:format(tostring(ns.version), tostring(ns.build)))
     else
         say(L["Don't Do That v%s"]:format(tostring(ns.version)))
-        say(L["usage: /ddt [debug on|off | clear | probe | export | test | trainerids [hover]]"])
+        say(L["usage: /ddt [debug on|off | clear | probe | export | test | revision [number] | trainerids [hover]]"])
     end
 end
 

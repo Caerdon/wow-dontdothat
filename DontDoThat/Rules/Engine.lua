@@ -5,6 +5,7 @@ local Rules = ns.Rules or {}
 ns.Rules = Rules
 
 local classes = {}
+local revisionNumbers -- the revisions the loaded classes have, kept until a class is loaded or reset
 
 -- Validates rule data written with English spell names and stores it compiled to family IDs. A resolver can be
 -- passed in (tests do); by default names resolve through the bundled spell tables for the data's class.
@@ -15,9 +16,98 @@ function Rules.Load(data, resolver)
     prefix = function(prefix) return ns.SpellData.FamiliesWithPrefix(id, prefix) end,
   }
   local compiled = Rules.Compile(data, resolver)
+  -- The skip revisions: written in the rule data (tests), else the generated Data/SkipRevisions.lua for the class.
+  local raw = compiled.skipRevisions or (ns.SkipRevisions and ns.SkipRevisions[id])
+  if raw then
+    local specs = {}
+    for key in pairs(compiled.specs) do specs[key] = true end
+    local familyOk = (not data.skipRevisions) and ns.SpellData and function(family) return ns.SpellData.FamilyOfId(id, family) == family end or nil
+    Rules.ValidateSkipRevisions(id, raw, specs, familyOk)
+    compiled.skipRevisions, compiled.skipRevisionNumbers = Rules.FlattenSkipRevisions(raw)
+  end
   classes[id] = compiled
+  revisionNumbers = nil
   return compiled
 end
+
+-- Every skip revision any loaded class has, ascending, and the newest of them (the default).
+function Rules.SkipRevisionNumbers()
+  if revisionNumbers then return revisionNumbers end
+  local seen, out = {}, {}
+  for _, data in pairs(classes) do
+    for _, rev in ipairs(data.skipRevisionNumbers or {}) do
+      if not seen[rev] then seen[rev] = true; out[#out + 1] = rev end
+    end
+  end
+  table.sort(out)
+  revisionNumbers = out
+  return out
+end
+
+function Rules.NewestRevision()
+  local all = Rules.SkipRevisionNumbers()
+  return all[#all]
+end
+
+-- The revision to use: the player's pick when it exists, otherwise the newest.
+function Rules.ResolveRevision(wanted)
+  for _, rev in ipairs(Rules.SkipRevisionNumbers()) do
+    if rev == wanted then return rev end
+  end
+  return Rules.NewestRevision()
+end
+
+-- The skip entries of one family and rank in a revision: a list of { source, reason, specs }, empty when none.
+function Rules.SkipEntries(data, revision, family, rank)
+  local flat = data.skipRevisions and data.skipRevisions[revision]
+  local ranks = flat and flat[family]
+  return ranks and ranks[rank] or {}
+end
+
+-- The sentence that says why a rank is skipped, from the locale and the numbers the data records.
+local REASON_TEXT = {
+  guideFirstRankOnly = L["The leveling guide says to buy only the first rank of this spell."],
+  guideSkipEntirely = L["The leveling guide says this spell is not worth buying while leveling."],
+  guideUpToRank = L["The leveling guide says to buy this spell only up to rank %d."],
+  guideNotTrained = L["The leveling guide does not buy this rank while leveling."],
+  noGain = L["Adds nothing over the rank before it."],
+  smallStep = L["Only %d%% stronger than the rank before it, for a spell you only use now and then."],
+  notWorthPrice = L["Only %d%% stronger than the rank before it, which does not repay its price."],
+  waitForMount = L["This rank can wait until you have your level 60 mount."],
+  legacy = L["An earlier version of this list judged this rank a small upgrade."],
+}
+local REASON_NUMBER = { guideUpToRank = "n", smallStep = "pct", notWorthPrice = "pct" }
+
+function Rules.SkipReason(reason)
+  local text = REASON_TEXT[reason.kind]
+  local field = REASON_NUMBER[reason.kind]
+  return field and text:format(reason[field]) or text
+end
+
+-- Where a skip came from, for the Rules page.
+local SOURCE_TEXT = {
+  guide = L["From the Wowhead leveling guide."],
+  computed = L["Computed from the game data."],
+  legacy = L["From the earlier skip list."],
+}
+function Rules.SkipSource(source) return SOURCE_TEXT[source] end
+
+-- The entry that skips a rank for a player, or nil. Every spec still plausible for the player must skip it; an
+-- entry with no `specs` covers every spec of the class.
+local function skipEntryFor(entries, keys)
+  local covered, byKey = {}, {}
+  for _, entry in ipairs(entries) do
+    for _, key in ipairs(entry.specs or keys) do
+      covered[key] = true
+      byKey[key] = byKey[key] or entry
+    end
+  end
+  for _, key in ipairs(keys) do
+    if not covered[key] then return nil end
+  end
+  return byKey[keys[1]]
+end
+Rules.SkipEntryFor = skipEntryFor
 
 function Rules.GetClass(key) return classes[key] end
 
@@ -57,6 +147,7 @@ end
 -- Test hook: forget all loaded data.
 function Rules.Reset()
   classes = {}
+  revisionNumbers = nil
 end
 
 local SEVERITY = { keep = 0, info = 1, deferLow = 2, defer = 3 }
@@ -143,10 +234,13 @@ local function evaluateSpell(profile, action, data)
   local cost, isEstimate = costFor(action, row and row.cost)
   local function out(tier, source, reason) return verdict(profile, tier, source, reason, cost, isEstimate) end
 
-  -- A skipped rank is judged on its own, even when the spell as a whole is kept.
-  local skipped = data.skipRanks and data.skipRanks[name]
-  if skipped and not offKinds.skipRank and action.rank and contains(skipped, action.rank) then
-    return out("defer", "skipRank", L["Only a small upgrade over the rank before it."])
+  -- A skipped rank is judged on its own, even when the spell as a whole is kept. Which ranks are skipped is decided
+  -- by the revision the player chose (the newest unless they picked an earlier one).
+  local keys, isPlausible = plausible(profile, data)
+  if action.rank and not offKinds.skipRank then
+    local entries = Rules.SkipEntries(data, Rules.ResolveRevision(rules.skipRevision), name, action.rank)
+    local entry = #entries > 0 and skipEntryFor(entries, keys)
+    if entry then return out("defer", "skipRank", Rules.SkipReason(entry.reason)) end
   end
 
   local override = data.overrides and data.overrides[name]
@@ -155,7 +249,6 @@ local function evaluateSpell(profile, action, data)
     return out(override, "override", whyWait(data, name))
   end
 
-  local keys, isPlausible = plausible(profile, data)
   local infoSpec
   for _, key in ipairs(keys) do
     local rot = data.specs[key].rotation
