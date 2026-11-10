@@ -259,9 +259,9 @@ local function parseRank(sub)
   return n and tonumber(n) or nil
 end
 
--- Legacy API shape assumed from Classic (unverified on Forever):
---   GetTrainerServiceInfo(i) -> name, subText ("Rank 3"), serviceType ("available"|"unavailable"|"used"|"header")
---   GetTrainerServiceCost(i) -> copper; GetTrainerServiceLevelReq(i) -> level
+-- GetTrainerServiceInfo(i) -> name, subText ("Rank 3"), serviceType ("available"|"unavailable"|"used"|"header") on
+-- Classic Era; Forever returns name, serviceType, texture, reqLevel, subText, category, and Adapter.TrainerServiceInfo
+-- puts either into the Classic order. GetTrainerServiceCost(i) -> copper; GetTrainerServiceLevelReq(i) -> level.
 -- Returns { ok=bool, reason=string|nil, services={...} }.
 function Probe.TrainerSnapshot(env)
   env = env or _G
@@ -272,16 +272,23 @@ function Probe.TrainerSnapshot(env)
   local services, headers = {}, {}
   for i = 1, count do
     local name, werr, vals = firstValue(env, "GetTrainerServiceInfo", i)
+    local sub, status
+    if name ~= nil then
+      if ns.Adapter and ns.Adapter.TrainerServiceInfo then
+        _, sub, status = ns.Adapter.TrainerServiceInfo(unpack(vals, 1, 6))
+      else
+        sub, status = vals[2], vals[3]
+      end
+    end
     if name == nil then
       services[#services + 1] = { index = i, error = werr or "no name" }
-    elseif vals[3] == "header" then
+    elseif status == "header" then
       headers[#headers + 1] = { index = i, name = name }
     else
       local cost = firstValue(env, "GetTrainerServiceCost", i)
       local level = firstValue(env, "GetTrainerServiceLevelReq", i)
-      local status = vals[3]
       services[#services + 1] = {
-        index = i, name = name, rank = parseRank(vals[2]), subText = vals[2],
+        index = i, name = name, rank = parseRank(sub), subText = sub,
         level = level, cost = cost, status = status,
         available = status == "available", learned = status == "used",
       }

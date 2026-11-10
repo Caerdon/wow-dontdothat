@@ -88,6 +88,21 @@ test("beast training (no npc unit, or the npc is the pet) gets no verdicts at al
   eq(ns.Adapter.IsBeastTraining(fakeEnv()), false)
 end)
 
+test("Forever names beast training by trainer type, whatever the npc unit says", function()
+  local e = fakeEnv()
+  e.Enum = { TrainerType = { General = 0, TalentsObsolete = 1, Tradeskills = 2, Pet = 3 } }
+  e.C_Trainer = { GetTrainerType = function() return 3 end }
+  eq(ns.Adapter.IsBeastTraining(e), true, "pet type with an npc unit that is not the pet")
+  eq(ns.TrainerOverlay.Compute(e), nil)
+  e.C_Trainer.GetTrainerType = function() return 0 end
+  eq(ns.Adapter.IsBeastTraining(e), false)
+  local noNpc = fakeEnv({ noNpc = true })
+  noNpc.Enum, noNpc.C_Trainer = e.Enum, e.C_Trainer
+  eq(ns.Adapter.IsBeastTraining(noNpc), false, "the client's answer wins over the unit checks")
+  noNpc.C_Trainer = { GetTrainerType = function() error("not here") end }
+  eq(ns.Adapter.IsBeastTraining(noNpc), true, "a failing call falls back to the unit checks")
+end)
+
 test("compute flags the rows the rules defer and leaves the rest", function()
   local c = ns.TrainerOverlay.Compute(fakeEnv())
   eq(c.verdicts[2].tier, "keep")          -- Aspect of the Hawk: no rule
@@ -367,4 +382,32 @@ test("Era level 60 riding is read from the racial riding skill's max rank, in an
   eq(riding(150, "Horse Riding").journeyman, true, "the English name also matches")
   eq(riding(150, "Unrelated Skill").journeyman, false)
   eq(ns.Adapter.ReadRiding({}).journeyman, false, "no skill list at all")
+end)
+
+test("Forever's trainer rows come in Blizzard's mainline order and are read by it", function()
+  ns.db = nil
+  local env = fakeEnv()
+  local rows = {
+    { "Eagle Eye", "available", 132172, 14, "", "" },
+    { "Serpent Sting", "used", 132204, 10, "Rank 2", "Marksmanship" },
+    { "Distracting Shot", "unavailable", 135736, 20, "Rank 2", "Marksmanship" },
+  }
+  env.GetNumTrainerServices = function() return #rows end
+  env.GetTrainerServiceInfo = function(i) return unpack(rows[i], 1, 6) end
+  env.GetTrainerServiceCost = function(i) return 100 * i end
+  env.GetTrainerServiceLevelReq = function(i) return rows[i][4] end
+  local t = ns.Adapter.ReadTrainer(env)
+  truthy(t.ok)
+  eq(#t.rows, 3)
+  eq(t.rows[1].kind, "available"); eq(t.rows[1].available, true); eq(t.rows[1].rank, nil); falsy(t.rows[1].header)
+  eq(t.rows[2].kind, "used"); eq(t.rows[2].learned, true); eq(t.rows[2].rank, 2); eq(t.rows[2].sub, "Rank 2")
+  eq(t.rows[3].kind, "unavailable"); eq(t.rows[3].learned, false); eq(t.rows[3].available, false); eq(t.rows[3].rank, 2)
+  -- The rules then see the rows as they are: the learned one is left alone, the deferred one is judged.
+  local computed = ns.TrainerOverlay.Compute(env)
+  eq(computed.verdicts[2], nil, "a learned spell is not judged")
+  eq(computed.verdicts[3].tier, "defer")
+  -- Classic Era's order passes through untouched, headers included.
+  eq({ ns.Adapter.TrainerServiceInfo("Wing Clip", "Rank 1", "used", 1) }, { "Wing Clip", "Rank 1", "used", 1 })
+  eq({ ns.Adapter.TrainerServiceInfo("Survival", nil, "header", 1) }, { "Survival", nil, "header", 1 })
+  eq({ ns.Adapter.TrainerServiceInfo("Track Humanoids", nil, "available", 1) }, { "Track Humanoids", nil, "available", 1 })
 end)

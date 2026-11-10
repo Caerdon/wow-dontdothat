@@ -178,7 +178,11 @@ end
 
 local function recordPurchase(env, saved, index)
   local c = store(saved)
-  local okI, name, subText = pcall(function() return env.GetTrainerServiceInfo(index) end)
+  local okI, name, subText = pcall(function()
+    local shape = ns.Adapter and ns.Adapter.TrainerServiceInfo -- Forever's row order differs, see Adapter
+    if shape then return shape(env.GetTrainerServiceInfo(index)) end
+    return env.GetTrainerServiceInfo(index)
+  end)
   local okC, cost = pcall(function() return env.GetTrainerServiceCost(index) end)
   c.purchases[#c.purchases + 1] = {
     t = now(), index = index, name = okI and name or nil, subText = okI and subText or nil,

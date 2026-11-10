@@ -40,6 +40,11 @@ local function filterOn()
   return not degraded and offered() and settings().recommendedActive ~= false
 end
 
+-- WoW Forever lists the services in a ScrollBox (ClassTrainerFrame.ScrollBox); Classic Era in 11 fixed row buttons.
+local function isModern(env, frame)
+  return type(frame.ScrollBox) == "table" and type(env.ClassTrainerSkill1) ~= "table"
+end
+
 ---------------------------------------------------------------------------
 -- Drawing
 
@@ -96,13 +101,17 @@ local function drawRow(env, i, row, selectedIndex)
   end
 end
 
--- Asks the open trainer window to redraw itself, so a changed setting shows at once. Our hook then runs
--- after Blizzard's drawing and applies whatever the settings now say.
+-- Shows a changed setting in the open trainer window at once. On Classic Era that asks the window to redraw
+-- itself, and our hook then runs after Blizzard's drawing and applies whatever the settings now say. On Forever
+-- the rows are faded in place, so the filter is simply applied again: a redraw started by the addon would taint
+-- Blizzard's list (see RenderModern).
 function Filter.Refresh(env)
   env = env or _G
   local frame = env.ClassTrainerFrame
-  if type(frame) == "table" and type(frame.IsVisible) == "function" and frame:IsVisible()
-      and type(env.ClassTrainerFrame_Update) == "function" then
+  if type(frame) ~= "table" or type(frame.IsVisible) ~= "function" or not frame:IsVisible() then return end
+  if isModern(env, frame) then
+    pcall(Filter.Apply, env)
+  elseif type(env.ClassTrainerFrame_Update) == "function" then
     pcall(env.ClassTrainerFrame_Update)
   end
 end
@@ -145,68 +154,65 @@ local function degrade(env, reason)
   degraded = tostring(reason)
   if ns.Log then ns.Log.Add("filter: turned off (%s)", degraded) end
   -- Put Blizzard's own drawing back.
-  if type(env.ClassTrainerFrame_Update) == "function" then pcall(env.ClassTrainerFrame_Update) end
-end
-
--- WoW Forever lists the services in a ScrollBox over a tree data provider (ClassTrainerFrame.ScrollBox);
--- each service node's data is { skillIndex, displayIndex, ... } and Blizzard resolves a click through those
--- indexes, so removing a node hides its row without renumbering anything. Observed on 1.60.1 (build 70790).
-local function isModern(env, frame)
-  return type(frame.ScrollBox) == "table" and type(env.ClassTrainerSkill1) ~= "table"
-end
-
-local function nodeData(node)
-  if type(node) ~= "table" or type(node.GetData) ~= "function" then return nil end
-  local ok, data = pcall(node.GetData, node)
-  return ok and type(data) == "table" and data or nil
-end
-
--- Removes the nodes in list whose service index is in hidden (a set), each through its own parent, and then
--- any category node left with nothing in it. list is every node the ScrollBox holds, categories included.
--- Returns how many nodes went.
-function Filter.PruneNodes(list, hidden)
-  local removed, categories = 0, {}
-  for _, node in ipairs(list) do
-    local data = nodeData(node)
-    if data and data.skillIndex then
-      if hidden[data.skillIndex] then
-        local parent = type(node.GetParent) == "function" and node:GetParent()
-        assert(type(parent) == "table" and type(parent.Remove) == "function", "a service node has no parent to remove it from")
-        parent:Remove(node)
-        removed = removed + 1
-      end
-    elseif type(node.GetNodes) == "function" then
-      categories[#categories + 1] = node
-    end
+  local frame = env.ClassTrainerFrame
+  if type(frame) == "table" and isModern(env, frame) then
+    Filter.ClearModern(frame)
+  elseif type(env.ClassTrainerFrame_Update) == "function" then
+    pcall(env.ClassTrainerFrame_Update)
   end
-  for _, node in ipairs(categories) do
-    local parent = type(node.GetParent) == "function" and node:GetParent()
-    if #node:GetNodes() == 0 and type(parent) == "table" and type(parent.Remove) == "function" then
-      parent:Remove(node)
-      removed = removed + 1
-    end
-  end
-  return removed
+end
+
+-- On Forever the list is Blizzard's ScrollBox over a tree data provider, and it has to stay Blizzard's: a node
+-- removed from it, or a FullUpdate run, from addon code leaves addon-tainted entries in the ScrollBox's own
+-- tables and row frames. Blizzard's next secure redraw reads them, runs tainted from there on, and the Train
+-- button's BuyTrainerService is then refused for any service paid in training points (beast training; seen on
+-- 1.60.1 as "AddOn 'DontDoThat' tried to call the protected function 'UNKNOWN()'"). Gold purchases are not
+-- protected, so a class trainer never shows the damage. So the filter fades the rows it would hide, through
+-- SetAlpha on the row frame, and never redraws the list itself. Rows are recycled while scrolling, so each one
+-- is faded again as Blizzard sets it up (the ClassTrainerFrame_InitServiceButton hook in Trainer.lua).
+local FADED_ALPHA = 0.35
+
+-- The service indexes faded in the Forever window (a set), or nil when none are.
+Filter.modernHidden = nil
+
+local function serviceIndex(row)
+  local overlay = ns.TrainerOverlay
+  return overlay and overlay.ModernServiceIndex and overlay.ModernServiceIndex(row) or nil
+end
+
+-- Fades or restores one row from the current set. A category row (no service index) and a row without
+-- SetAlpha are left alone.
+function Filter.MarkModernRow(row)
+  if type(row) ~= "table" or type(row.SetAlpha) ~= "function" then return end
+  local hidden = Filter.modernHidden
+  local index = hidden and serviceIndex(row)
+  row:SetAlpha((index and hidden[index]) and FADED_ALPHA or 1)
+end
+
+local function eachRow(frame, fn)
+  local box = type(frame) == "table" and frame.ScrollBox
+  assert(type(box) == "table" and type(box.ForEachFrame) == "function", "the rows cannot be enumerated")
+  box:ForEachFrame(fn)
+end
+
+-- Puts every row back to full strength and forgets the set. Touches nothing of Blizzard's, so it is safe at any
+-- time, the trainer closing included.
+function Filter.ClearModern(frame)
+  Filter.modernHidden = nil
+  pcall(eachRow, frame, Filter.MarkModernRow)
 end
 
 function Filter.RenderModern(env, frame, visibility, rows)
-  local box = frame.ScrollBox
-  assert(type(box.ForEachElementData) == "function", "the list cannot be enumerated")
   local shown = {}
   for _, row in ipairs(visibility.visible) do shown[row.index] = true end
-  local hidden = {}
+  local hidden, count = {}, 0
   for _, row in ipairs(rows) do
-    if row.index and not shown[row.index] then hidden[row.index] = true end
+    if row.index and not shown[row.index] then hidden[row.index] = true; count = count + 1 end
   end
-  local list = {}
-  box:ForEachElementData(function(node) list[#list + 1] = node end)
-  local removed = Filter.PruneNodes(list, hidden)
-  if ns.Log then ns.Log.Add("filter: removed %d node(s) from the trainer list", removed) end
+  Filter.modernHidden = hidden
+  eachRow(frame, Filter.MarkModernRow) -- raises when the rows cannot be enumerated, and the caller degrades
+  if ns.Log then ns.Log.Add("filter: faded %d row(s) in the trainer list", count) end
   frame.DontDoThatFiltered = true
-  if type(box.FullUpdate) == "function" then
-    local constants = env.ScrollBoxConstants
-    pcall(box.FullUpdate, box, constants and constants.UpdateImmediately)
-  end
 end
 
 -- Runs after Blizzard has drawn the list. Does nothing unless something is actually hidden.
@@ -221,7 +227,11 @@ function Filter.Apply(env)
   local wasFiltered = frame.DontDoThatFiltered
   frame.DontDoThatFiltered = nil
   local function putBack()
-    if wasFiltered and not Filter.inUpdate then Filter.Refresh(env) end
+    if isModern(env, frame) then
+      if Filter.modernHidden then Filter.ClearModern(frame) end
+    elseif wasFiltered and not Filter.inUpdate then
+      Filter.Refresh(env)
+    end
     return false
   end
 

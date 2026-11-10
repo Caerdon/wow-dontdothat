@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.1
+
+- Fixed beast training on Forever being refused ("AddOn 'DontDoThat' tried to call the protected function 'UNKNOWN()'") after a visit to a class or pet trainer. Two things in the addon were marking Blizzard's trainer window as touched by an addon, and the game then refuses any purchase paid in training points (gold purchases are not protected, so a class trainer never showed it). To ask "Buy anyway?" at a trainer, the addon was swapping the game's BuyTrainerService for its own copy and putting the original back for beast training; either write marks it. And the Recommended filter was taking rows out of Blizzard's own list and redrawing it, which marks the indexes the Train button reads. On Forever the addon now touches neither: the question is asked from a button of the addon's own laid over Train, which makes the purchase itself on confirm, and the filter fades the rows it would hide instead of removing them. Beast training never gets a question. Vendor and auction house questions, and Classic Era, are unchanged.
+- On Forever a flagged spell is now recognised by its place in the trainer's own service list, so the question is asked about the spell actually selected; the window numbers its rows by display order and the addon was reading that number as the service index.
+- The addon now asks the client what kind of trainer is open, the way the game's own window does, before treating a window as beast training.
+- Forever's trainer rows are now read in the order that client returns them (name, type, icon, level, rank text, category). The addon was reading Classic Era's order, so on Forever every row looked unranked and never learned: the rank-skip advice and the learned-versus-open tally on the Progress page were silent there.
+
 ## 0.11.0
 
 - **The rank-skip advice has changed significantly.** Which spell ranks to skip now comes in numbered revisions, and revision 2 is the new default. It skips many more ranks, decides them for your spec (a rank is only flagged when every spec you might be playing skips it), and follows the Wowhead leveling guides wherever they have a view. A later rank that unlocks at level 60 is flagged only for utility spells, and only until you have your level 60 mount.

@@ -76,6 +76,8 @@ local function modernServiceIndex(row)
   return type(data) == "table" and data.skillIndex or nil
 end
 
+Trainer.ModernServiceIndex = modernServiceIndex
+
 -- The verdicts of the last full pass, so a row the ScrollBox recycles while scrolling can be marked at once.
 Trainer.lastVerdicts = nil
 
@@ -135,6 +137,7 @@ function Trainer.Enable(eventTarget, env)
       if ns.TrainerFilter then ns.TrainerFilter.inUpdate = true end
       Trainer.SafeRefresh(env)
       if ns.TrainerFilter then ns.TrainerFilter.inUpdate = false end
+      if ns.TrainerConfirm and ns.TrainerConfirm.Sync then pcall(ns.TrainerConfirm.Sync, env) end
     end)
     if ns.Log then ns.Log.Add("overlay: ClassTrainerFrame_Update %s", hooked and "hooked" or "FAILED to hook") end
   end
@@ -143,6 +146,7 @@ function Trainer.Enable(eventTarget, env)
   local function installRowHook()
     if rowHooked or type(env.hooksecurefunc) ~= "function" or type(env.ClassTrainerFrame_InitServiceButton) ~= "function" then return end
     rowHooked = pcall(env.hooksecurefunc, "ClassTrainerFrame_InitServiceButton", function(button)
+      if ns.TrainerFilter and ns.TrainerFilter.MarkModernRow then pcall(ns.TrainerFilter.MarkModernRow, button) end
       pcall(Trainer.MarkModernRow, button)
     end)
     if ns.Log then ns.Log.Add("overlay: ClassTrainerFrame_InitServiceButton %s", rowHooked and "hooked" or "FAILED to hook") end
@@ -156,5 +160,10 @@ function Trainer.Enable(eventTarget, env)
       Trainer.SafeRefresh(env)
     end)
   end
+  -- A faded Forever list must not carry into the next window (the row hook would fade rows by the old indexes
+  -- until our refresh ran), so the fading is forgotten as the trainer closes.
+  pcall(eventTarget.RegisterEvent, eventTarget, "TRAINER_CLOSED", function()
+    if ns.TrainerFilter and ns.TrainerFilter.ClearModern then pcall(ns.TrainerFilter.ClearModern, env.ClassTrainerFrame) end
+  end)
   if ns.TrainerConfirm then ns.TrainerConfirm.Watch(eventTarget) end
 end

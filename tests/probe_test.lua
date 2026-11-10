@@ -337,3 +337,24 @@ test("popups reports missing guard dialogs and related extras", function()
   truthy(text:find("other related popups: CONFIRM_RESPEC_SPEC", 1, true))
   falsy(text:find("UNRELATED", 1, true))
 end)
+
+test("a Forever trainer row, in Blizzard's mainline order, is snapshotted by its own shape", function()
+  local ns = {}
+  H.load("DontDoThat/Intercepts/Adapter.lua", ns)
+  H.load("DontDoThat/Debug/Probe.lua", ns)
+  local rows = {
+    { "Eagle Eye", "available", 132172, 14, "", "" },
+    { "Serpent Sting", "used", 132204, 10, "Rank 2", "Marksmanship" },
+  }
+  local env = {
+    GetNumTrainerServices = function() return #rows end,
+    GetTrainerServiceInfo = function(i) return unpack(rows[i], 1, 6) end,
+    GetTrainerServiceCost = function() return 100 end,
+    GetTrainerServiceLevelReq = function(i) return rows[i][4] end,
+  }
+  local snap = ns.Probe.TrainerSnapshot(env)
+  eq(#snap.services, 2)
+  eq(snap.services[1].status, "available"); eq(snap.services[1].rank, nil); eq(snap.services[1].available, true)
+  eq(snap.services[2].status, "used"); eq(snap.services[2].rank, 2); eq(snap.services[2].learned, true)
+  truthy(table.concat(ns.Probe.ServiceLines(snap.services), "\n"):find("Serpent Sting rank=2 level=10", 1, true))
+end)

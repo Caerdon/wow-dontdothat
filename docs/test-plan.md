@@ -41,7 +41,10 @@ Levels needed: most steps work at **level 10**. Steps marked (L12) need level 12
 
 ## 4. Recommended filter
 - [ ] Click the trainer's **Filter** menu: a **Recommended (Don't Do That)** checkbox appears below Available / Unavailable / Already known, and it is **checked**.
-- [ ] The list is shorter (no extra text is added to the window): Distracting Shot, tracking spells, Eagle Eye and similar are gone; category headers remain.
+- [ ] The list is shorter (no extra text is added to the window): Distracting Shot, tracking spells, Eagle Eye and similar are gone; category headers remain. On Forever those rows are faded instead of removed (removing them taints Blizzard's list and the game then refuses beast training).
+- [ ] Forever: at a class trainer select a flagged spell (Distracting Shot) and click Train. The question appears; decline and nothing is bought; click Train again and confirm, and the spell is learned. The button lights up under the mouse and presses as usual. An unflagged spell is bought with no question.
+- [ ] Forever: in `/ddt export` with a class trainer open, the trainer snapshot shows `rank=2 ... status=available` style rows, not an icon number as the status; a rank the skip list passes over is faded and marked.
+- [ ] Forever: with the filter on, visit a class trainer and a pet trainer, then open Beast Training and buy a pet ability that costs training points. No error, no question, and the ability is learned. `/run print(issecurevariable("BuyTrainerService"))` prints `true` throughout.
 - [ ] Select a visible spell, click Train (use a cheap one): **the spell you selected is the one bought**.
 - [ ] Scroll the list; click a category header to collapse and expand it; use the collapse-all button. Nothing looks broken and rows stay in order.
 - [ ] Untick Recommended: every row comes back. Tick it again.
@@ -71,7 +74,7 @@ Levels needed: most steps work at **level 10**. Steps marked (L12) need level 12
 ## 7. Safety checks
 - [ ] With every switch on, open and close the trainer a dozen times, scroll, and click around: no error popups.
 - [ ] Open the **talent window**, **spellbook** and **bags** while the addon is on: nothing changes or breaks.
-- [ ] `/ddt export`, copy it, and look for lines like "overlay: ClassTrainerFrame_Update hooked", "confirm: Train button click wrapped" (Classic Era) or "confirm: BuyTrainerService wrapped (Forever window)" and "filter: menu entry registered". Send me the report if any step above failed.
+- [ ] `/ddt export`, copy it, and look for lines like "overlay: ClassTrainerFrame_Update hooked", "confirm: Train button click wrapped" (Classic Era) or "confirm: Forever window: Train button hooked, question asked from the addon's own button" and "filter: menu entry registered". Send me the report if any step above failed.
 
 ## 8. Spell data check
 - [ ] `/ddt export`, then find the **Spell data check** section. It should say "bundled spell tables: build 1.60.1.70532, 157 spells for HUNTER" and "spellbook says N known" with N a believable number for your character (not 0 unless you know nothing).

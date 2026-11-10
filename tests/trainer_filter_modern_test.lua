@@ -2,77 +2,153 @@ package.path = "./tests/?.lua;" .. package.path
 local H = require("harness")
 
 local ns = { L = setmetatable({}, { __index = function(_, k) return k end }) }
+H.load("DontDoThat/Intercepts/Trainer.lua", ns)
 H.load("DontDoThat/Intercepts/TrainerFilter.lua", ns)
 local Filter = ns.TrainerFilter
 
--- Tree nodes shaped like Forever's: data, children, a parent, and Remove on the parent.
-local function node(data, children)
-  local n = { data = data, children = children or {} }
-  function n:GetData() return self.data end
-  function n:GetNodes() return self.children end
-  function n:GetParent() return self.parent end
-  function n:Remove(child)
-    for i, c in ipairs(self.children) do if c == child then table.remove(self.children, i); child.parent = nil; return end end
-  end
-  for _, c in ipairs(n.children) do c.parent = n end
-  return n
+-- Row frames shaped like Forever's: GetElementData() is a tree node whose GetData() holds skillIndex.
+-- A category row has no service in its data.
+local function row(skillIndex)
+  local r = { alpha = 1 }
+  function r:SetAlpha(a) self.alpha = a end
+  function r:GetElementData() return { GetData = function() return { skillIndex = skillIndex } end } end
+  return r
 end
-local function service(i) return node({ skillIndex = i, displayIndex = i }) end
--- Every node below root in the order the ScrollBox enumerates them.
-local function flatten(root, out)
-  out = out or {}
-  for _, c in ipairs(root.children) do out[#out + 1] = c; flatten(c, out) end
-  return out
-end
-local function indexes(parent)
+local function alphas(rows)
   local out = {}
-  for _, c in ipairs(parent.children) do out[#out + 1] = c.data and c.data.skillIndex or "category" end
+  for i, r in ipairs(rows) do out[i] = r.alpha end
+  return out
+end
+-- A ScrollBox that only lets its rows be visited. Editing the list or redrawing it is refused, as taint would follow.
+local function scrollBox(rows)
+  return {
+    ForEachFrame = function(_, fn) for _, r in ipairs(rows) do fn(r) end end,
+    ForEachElementData = function() error("the list must not be read for editing") end,
+    FullUpdate = function() error("a redraw from addon code taints the list") end,
+  }
+end
+local function forbidRedraw() error("ClassTrainerFrame_Update must not run from addon code on Forever") end
+
+local function services(n)
+  local out = {}
+  for i = 1, n do out[i] = { index = i } end
   return out
 end
 
-test("hidden services are removed from a flat tree, the rest keep their indexes", function()
-  local root = node(nil, { service(1), service(2), service(3), service(4) })
-  eq(Filter.PruneNodes(flatten(root), { [2] = true, [4] = true }), 2)
-  eq(indexes(root), { 1, 3 })
-end)
-
-test("a category left empty goes, one with a service left stays", function()
-  local a = node({ name = "A" }, { service(1), service(2) })
-  local b = node({ name = "B" }, { service(3) })
-  local root = node(nil, { a, b })
-  Filter.PruneNodes(flatten(root), { [1] = true, [2] = true })
-  eq(#root.children, 1)
-  eq(root.children[1] == b, true)
-end)
-
-test("nothing hidden changes nothing", function()
-  local root = node(nil, { service(1), node({}, { service(2) }) })
-  eq(Filter.PruneNodes(flatten(root), {}), 0)
-  eq(#root.children, 2)
-end)
-
-test("RenderModern hides the rows the verdicts defer, through the ScrollBox's own nodes", function()
-  local root = node(nil, { service(1), service(2), service(3) })
-  local updated
-  local box = {
-    ForEachElementData = function(_, fn) for _, n in ipairs(flatten(root)) do fn(n) end end,
-    FullUpdate = function() updated = true end,
-  }
-  local frame = { ScrollBox = box }
-  local rows = { { index = 1 }, { index = 2 }, { index = 3 } }
-  Filter.RenderModern({}, frame, { visible = { rows[1], rows[3] } }, rows)
-  eq(indexes(root), { 1, 3 })
+test("RenderModern fades the rows the verdicts defer and leaves the rest, without touching the list", function()
+  Filter.ClearModern(nil)
+  local rows = { row(1), row(2), row(3), row(nil) }
+  local frame = { ScrollBox = scrollBox(rows) }
+  local list = services(3)
+  Filter.RenderModern({}, frame, { visible = { list[1], list[3] } }, list)
+  eq(alphas(rows), { 1, 0.35, 1, 1 })
   eq(frame.DontDoThatFiltered, true)
-  eq(updated, true)
+  eq(Filter.modernHidden, { [2] = true })
 end)
 
-test("RenderModern raises when the list cannot be enumerated, so the caller degrades", function()
+test("a row recycled while scrolling is faded as Blizzard sets it up", function()
+  Filter.modernHidden = { [2] = true }
+  local recycled = row(2)
+  Filter.MarkModernRow(recycled)
+  eq(recycled.alpha, 0.35)
+  local shown = row(1)
+  Filter.MarkModernRow(shown)
+  eq(shown.alpha, 1)
+  local category = row(nil)
+  category.alpha = 0.35
+  Filter.MarkModernRow(category)
+  eq(category.alpha, 1)
+  Filter.MarkModernRow({})
+  Filter.MarkModernRow(nil)
+  Filter.ClearModern(nil)
+end)
+
+test("ClearModern restores every row and forgets the set", function()
+  local rows = { row(1), row(2) }
+  local frame = { ScrollBox = scrollBox(rows) }
+  local list = services(2)
+  Filter.RenderModern({}, frame, { visible = { list[1] } }, list)
+  eq(alphas(rows), { 1, 0.35 })
+  Filter.ClearModern(frame)
+  eq(alphas(rows), { 1, 1 })
+  eq(Filter.modernHidden, nil)
+  Filter.ClearModern({})
+  Filter.ClearModern(nil)
+end)
+
+test("RenderModern raises when the rows cannot be visited, so the caller degrades", function()
   local ok = pcall(Filter.RenderModern, {}, { ScrollBox = {} }, { visible = {} }, {})
   eq(ok, false)
+  Filter.ClearModern(nil)
 end)
 
-test("a node with no parent to remove it raises", function()
-  local orphan = service(1)
-  local ok = pcall(Filter.PruneNodes, { orphan }, { [1] = true })
-  eq(ok, false)
+-- Apply on a Forever window, end to end: the filter is decided by the overlay's verdicts, and nothing of
+-- Blizzard's is redrawn or edited on the way.
+local function forever(verdicts)
+  Filter.Reset()
+  Filter.ClearModern(nil)
+  local rows = { row(1), row(2), row(3) }
+  local frame = { ScrollBox = scrollBox(rows), IsVisible = function() return true end }
+  local env = { ClassTrainerFrame = frame, ClassTrainerFrame_Update = forbidRedraw }
+  local list = services(3)
+  ns.db = { profile = {} }
+  ns.TrainerOverlay.Compute = function() return { rows = list, verdicts = verdicts } end
+  ns.TrainerVisibility = { Compute = function(services, verdictFor)
+    local result = { visible = {}, hiddenCount = 0 }
+    for _, s in ipairs(services) do
+      local v = verdictFor(s)
+      if v and v.tier == "defer" then result.hiddenCount = result.hiddenCount + 1 else result.visible[#result.visible + 1] = s end
+    end
+    return result
+  end }
+  return env, frame, rows
+end
+
+test("Apply fades deferred rows on Forever and never redraws Blizzard's list", function()
+  local env, frame, rows = forever({ [2] = { tier = "defer" }, [3] = { tier = "keep" } })
+  eq(Filter.Apply(env), true)
+  eq(alphas(rows), { 1, 0.35, 1 })
+  eq(Filter.DegradedReason(), nil)
+  -- Applied again from inside or outside Blizzard's update, the rows stay as they are.
+  eq(Filter.Apply(env), true)
+  eq(alphas(rows), { 1, 0.35, 1 })
+  Filter.ClearModern(frame)
+end)
+
+test("switching the Recommended entry off puts the rows back without a redraw", function()
+  local env, frame, rows = forever({ [2] = { tier = "defer" } })
+  eq(Filter.Apply(env), true)
+  eq(alphas(rows), { 1, 0.35, 1 })
+  ns.db.profile.recommendedActive = false
+  eq(Filter.Apply(env), false)
+  eq(alphas(rows), { 1, 1, 1 })
+  eq(Filter.modernHidden, nil)
+  -- Refresh (a settings change) goes through Apply on Forever, not through ClassTrainerFrame_Update.
+  ns.db.profile.recommendedActive = true
+  Filter.Refresh(env)
+  eq(alphas(rows), { 1, 0.35, 1 })
+  Filter.ClearModern(frame)
+end)
+
+test("beast training (no verdicts) clears a fade left by the last trainer", function()
+  local env, frame, rows = forever({ [2] = { tier = "defer" } })
+  eq(Filter.Apply(env), true)
+  ns.TrainerOverlay.Compute = function() return nil end
+  eq(Filter.Apply(env), false)
+  eq(alphas(rows), { 1, 1, 1 })
+  eq(Filter.modernHidden, nil)
+end)
+
+test("a failure while fading turns the filter off and restores the rows, with no redraw", function()
+  local env, frame, rows = forever({ [2] = { tier = "defer" } })
+  frame.ScrollBox.ForEachFrame = function(_, fn)
+    for i, r in ipairs(rows) do
+      if i == 2 then error("boom") end
+      fn(r)
+    end
+  end
+  eq(Filter.Apply(env), false)
+  truthy(Filter.DegradedReason())
+  eq(Filter.modernHidden, nil)
+  Filter.Reset()
 end)

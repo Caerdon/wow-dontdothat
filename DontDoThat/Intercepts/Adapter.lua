@@ -95,7 +95,18 @@ function Adapter.ProfessionId(env, name)
   return professionMaps[env][name]
 end
 
--- GetTrainerServiceInfo(i) -> name, subText ("Rank 3"), type ("available"|"unavailable"|"used"|"header")
+-- A trainer row in Classic Era's order: name, subText ("Rank 3"), type ("available"|"unavailable"|"used"|"header"),
+-- expanded, and the category when the client gives one. Classic Era's GetTrainerServiceInfo returns it that way.
+-- Forever returns Blizzard's mainline order instead, name, type, texture, reqLevel, subText, category (its
+-- Blizzard_TrainerUI.lua reads it so; seen on 1.60.1 as "Eagle Eye", "available", 132172, 14, "", ""), told apart
+-- by the type word sitting second. Read any other way, every Forever row looks unranked and never learned.
+local SERVICE_TYPES = { available = true, unavailable = true, used = true, header = true }
+function Adapter.TrainerServiceInfo(a, b, c, d, e, f)
+  if SERVICE_TYPES[b] and not SERVICE_TYPES[c] then return a, e, b, nil, f end
+  return a, b, c, d
+end
+
+-- GetTrainerServiceInfo(i) -> a row, see TrainerServiceInfo above
 -- GetTrainerServiceCost(i) -> copper; GetTrainerServiceLevelReq(i) -> level
 -- Returns { ok, reason, rows, byIndex }. rows keep the client's order and original service indexes;
 -- category headers are included with header = true.
@@ -108,7 +119,7 @@ function Adapter.ReadTrainer(env)
   local rows, byIndex = {}, {}
   local class = Adapter.ReadPlayer(env).class
   for i = 1, count do
-    local name, sub, kind, expanded = call(env, "GetTrainerServiceInfo", i)
+    local name, sub, kind, expanded = Adapter.TrainerServiceInfo(call(env, "GetTrainerServiceInfo", i))
     if name ~= nil then
       local row = { index = i, name = name, kind = kind, sub = sub }
       if kind == "header" then
@@ -252,6 +263,12 @@ end
 -- Trainer NPC is neither, so it gets the full treatment.
 function Adapter.IsBeastTraining(env)
   env = env or _G
+  -- Forever says so outright: its trainer window reads C_Trainer.GetTrainerType() and treats Enum.TrainerType.Pet
+  -- as beast training, switching to the "pet" unit for the title. The "npc" unit does not name the pet there, so the
+  -- unit checks below would call beast training a trainer and leave the purchase wrapped, which the client refuses.
+  local trainerType = type(env.C_Trainer) == "table" and call(env.C_Trainer, "GetTrainerType")
+  local petType = type(env.Enum) == "table" and type(env.Enum.TrainerType) == "table" and env.Enum.TrainerType.Pet
+  if type(trainerType) == "number" and type(petType) == "number" then return trainerType == petType end
   if type(env.UnitName) ~= "function" then return false end -- cannot tell
   local guid, name = call(env, "UnitGUID", "npc"), call(env, "UnitName", "npc")
   if not (type(guid) == "string" and guid ~= "") and not (type(name) == "string" and name ~= "") then return true end
